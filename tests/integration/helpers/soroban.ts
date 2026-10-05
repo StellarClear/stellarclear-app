@@ -60,6 +60,10 @@ export class LiveSorobanEnvironment implements OnChainAnchorService {
     this.observers.add(address);
   }
 
+  public revokeObserver(address: string): void {
+    this.observers.delete(address);
+  }
+
   public async anchorCaseCreation(
     terms: ExpectedSettlement
   ): Promise<TransactionResult<void>> {
@@ -184,6 +188,10 @@ export class LiveSorobanEnvironment implements OnChainAnchorService {
     const existing = this.cases.get(caseIdNorm);
     if (!existing) {
       throw new Error(`Case not found on chain: ${params.caseId}`);
+    }
+
+    if (params.role === "OBSERVER" && !this.observers.has(params.attestor)) {
+      throw new Error(`ObserverNotRegistered: ${params.attestor}`);
     }
 
     const txHash = this.generateTxHash("attest", caseIdNorm);
