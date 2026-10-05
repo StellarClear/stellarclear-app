@@ -366,4 +366,45 @@ describe("SDK Package - Observer Quorum Verification (TASK A)", () => {
     assert.strictEqual(res.quorumSatisfied, false);
     assert.deepStrictEqual(res.distinctObservers, [OBSERVER_1]);
   });
+
+  it("does not assume original observation observer is mandatory", () => {
+    // Original observation was recorded by OBSERVER_1, but OBSERVER_2 and OBSERVER_3 attested
+    const res = verifyObserverQuorum({
+      caseId: VALID_CASE_ID,
+      owner: VALID_ACCOUNT_ID,
+      counterparty: VALID_CP_ID,
+      requiredQuorum: 2,
+      attestations: [
+        { attestor: OBSERVER_2, role: "OBSERVER" },
+        { attestor: OBSERVER_3, role: "OBSERVER" },
+      ],
+    });
+
+    assert.strictEqual(res.requiredObserverQuorum, 2);
+    assert.strictEqual(res.distinctObserverCount, 2);
+    assert.strictEqual(res.quorumSatisfied, true);
+    assert.ok(!res.distinctObservers.includes(OBSERVER_1));
+  });
+
+  it("historical valid attestations survive observer revocation in verification records", () => {
+    // OBSERVER_1 submitted valid attestation while authorized; later revoked
+    // The historical attestation record is preserved and counts towards distinct observers
+    const historicalAttestations = [
+      { attestor: OBSERVER_1, role: "OBSERVER" }, // Submitted historically
+      { attestor: OBSERVER_2, role: "OBSERVER" }, // Still active
+    ];
+
+    const res = verifyObserverQuorum({
+      caseId: VALID_CASE_ID,
+      owner: VALID_ACCOUNT_ID,
+      counterparty: VALID_CP_ID,
+      requiredQuorum: 2,
+      attestations: historicalAttestations,
+    });
+
+    assert.strictEqual(res.distinctObserverCount, 2);
+    assert.strictEqual(res.quorumSatisfied, true);
+    assert.deepStrictEqual(res.distinctObservers.sort(), [OBSERVER_1, OBSERVER_2].sort());
+  });
 });
+
