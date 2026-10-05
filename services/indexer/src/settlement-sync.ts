@@ -120,6 +120,7 @@ export class SettlementStateSynchronizer {
       topic_xdr: event.topicXdr,
       data_xdr: event.dataXdr,
       cursor: event.cursor,
+      payload: event.payload,
     });
 
     if (event.type === "ObserverAdded" || event.type === "ObserverRemoved") {

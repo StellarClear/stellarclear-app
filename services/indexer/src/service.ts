@@ -1,27 +1,46 @@
 import type { IDatabaseClient } from "@stellarclear/db";
-import { CursorRepository } from "@stellarclear/db";
+import { CursorRepository, ContractEventRepository } from "@stellarclear/db";
 import { decodeContractEvent, type RawStellarEvent } from "./decoder.js";
 import { EventProcessor } from "./processor.js";
 import type { DecodedContractEvent } from "./types.js";
+import {
+  SettlementEventStream,
+  createDurableReplay,
+  toStreamEvent,
+  type DurableReplay,
+} from "./stream.js";
 
 export interface IndexerConfig {
   network: string;
   contractId: string;
   batchSize?: number;
+  /** Bounded in-memory replay buffer size for the realtime stream (default 1000). */
+  streamBufferSize?: number;
 }
 
 export class IndexerService {
   private cursorRepo: CursorRepository;
+  private eventRepo: ContractEventRepository;
   private processor: EventProcessor;
   private currentLedger = 0;
   private currentCursor: string | null = null;
   private running = false;
+  /** Ordered realtime stream of events that passed decoding and were durably processed. */
+  public readonly stream: SettlementEventStream;
+  /** Database-backed durable replay used by stream consumers resuming from an event cursor. */
+  public readonly durableReplay: DurableReplay;
 
   constructor(
     private client: IDatabaseClient,
     private config: IndexerConfig
   ) {
     this.cursorRepo = new CursorRepository(client);
+    this.eventRepo = new ContractEventRepository(client);
+    this.durableReplay = createDurableReplay(client, config.network);
+    this.stream = new SettlementEventStream({
+      bufferSize: config.streamBufferSize,
+      replaySource: this.durableReplay.replaySource,
+    });
     this.processor = new EventProcessor(client, config.network);
   }
 
@@ -34,6 +53,7 @@ export class IndexerService {
       this.currentLedger = saved.last_processed_ledger;
       this.currentCursor = saved.last_processed_event_cursor ?? null;
     }
+    this.stream.resetBaseline(await this.durableReplay.latestSequence());
   }
 
   public get cursor(): { ledger: number; eventCursor: string | null } {
@@ -69,6 +89,16 @@ export class IndexerService {
 
         // Process event inside transaction boundary
         await this.processor.processEvent(decoded);
+
+        // processEvent durably persisted the validated event (idempotent on
+        // network+cursor, including its decoded payload). Read back its ingestion
+        // sequence and publish it to the realtime stream.
+        const row = await this.eventRepo.findByCursor(decoded.cursor, this.config.network);
+        if (!row) {
+          throw new Error(`Event ${decoded.cursor} was not persisted; refusing to publish`);
+        }
+        // Duplicate deliveries resolve to the same sequence and are ignored by the stream.
+        this.stream.publish(toStreamEvent(this.config.network, Number(row.id), decoded));
 
         if (decoded.ledger > latestLedger) {
           latestLedger = decoded.ledger;

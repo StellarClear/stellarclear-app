@@ -210,6 +210,73 @@ export class LiveSorobanEnvironment implements OnChainAnchorService {
     return { txHash, status: "SUCCESS", result: undefined };
   }
 
+  public async setCaseQuorum(caseId: string, quorum: number): Promise<TransactionResult<void>> {
+    this.advanceLedger(1);
+    const caseIdNorm = caseId.toLowerCase();
+    const existing = this.cases.get(caseIdNorm);
+    if (!existing) {
+      throw new Error(`Case not found on chain: ${caseId}`);
+    }
+    if (quorum <= 0) {
+      throw new Error("InvalidObserverQuorum: quorum must be a positive integer");
+    }
+    this.cases.set(caseIdNorm, {
+      ...existing,
+      observerQuorum: quorum,
+    });
+    const txHash = this.generateTxHash("quorum", caseIdNorm);
+    this.transactions.push({
+      txHash,
+      type: "SET_CASE_QUORUM",
+      caseId,
+      ledger: this.currentLedger,
+      timestamp: new Date().toISOString(),
+      payload: { quorum },
+    });
+    return { txHash, status: "SUCCESS", result: undefined };
+  }
+
+  public async getCaseQuorum(caseId: string): Promise<number> {
+    const existing = this.cases.get(caseId.toLowerCase());
+    return existing?.observerQuorum ?? 1;
+  }
+
+  public async getAttestedObservers(caseId: string): Promise<string[]> {
+    const caseIdNorm = caseId.toLowerCase();
+    const existing = this.cases.get(caseIdNorm);
+    if (!existing) return [];
+    const distinctObservers = new Set<string>();
+    for (const [key, att] of this.attestations.entries()) {
+      if (key.startsWith(`${caseIdNorm}:`)) {
+        if (
+          att.role === "OBSERVER" &&
+          att.attestor !== existing.owner &&
+          att.attestor !== existing.counterparty &&
+          this.observers.has(att.attestor)
+        ) {
+          distinctObservers.add(att.attestor);
+        }
+      }
+    }
+    return Array.from(distinctObservers);
+  }
+
+  public async submitObserverAttestation(params: {
+    caseId: string;
+    observer: string;
+    commitment: string;
+  }): Promise<TransactionResult<void>> {
+    if (!this.observers.has(params.observer)) {
+      throw new Error("ObserverNotRegistered: observer address is not registered");
+    }
+    return this.anchorAttestation({
+      caseId: params.caseId,
+      attestor: params.observer,
+      role: "OBSERVER",
+      commitment: params.commitment,
+    });
+  }
+
   public async anchorDispute(params: {
     initiator: string;
     caseId: string;
@@ -220,6 +287,9 @@ export class LiveSorobanEnvironment implements OnChainAnchorService {
     const existing = this.cases.get(caseIdNorm);
     if (!existing) {
       throw new Error(`Case not found on chain: ${params.caseId}`);
+    }
+    if (existing.status !== "BREAK") {
+      throw new Error("InvalidState: disputes can only open from BREAK status");
     }
 
     const txHash = this.generateTxHash("dispute", caseIdNorm);
@@ -232,6 +302,87 @@ export class LiveSorobanEnvironment implements OnChainAnchorService {
     this.transactions.push({
       txHash,
       type: "OPEN_DISPUTE",
+      caseId: params.caseId,
+      ledger: this.currentLedger,
+      timestamp: new Date().toISOString(),
+      payload: params,
+    });
+
+    return { txHash, status: "SUCCESS", result: undefined };
+  }
+
+  public async anchorDisputeWithTtl(params: {
+    initiator: string;
+    caseId: string;
+    disputeCommitment: string;
+    ttlLedgers: number;
+  }): Promise<TransactionResult<void>> {
+    this.advanceLedger(1);
+    const caseIdNorm = params.caseId.toLowerCase();
+    const existing = this.cases.get(caseIdNorm);
+    if (!existing) {
+      throw new Error(`Case not found on chain: ${params.caseId}`);
+    }
+    if (existing.status !== "BREAK") {
+      throw new Error("InvalidState: disputes can only open from BREAK status");
+    }
+
+    const txHash = this.generateTxHash("dispute_ttl", caseIdNorm);
+    this.disputes.set(caseIdNorm, params.disputeCommitment);
+    const disputeExpiresAtLedger = this.currentLedger + params.ttlLedgers;
+    this.cases.set(caseIdNorm, {
+      ...existing,
+      status: "DISPUTED",
+      disputeExpiresAtLedger,
+    });
+
+    this.transactions.push({
+      txHash,
+      type: "OPEN_DISPUTE",
+      caseId: params.caseId,
+      ledger: this.currentLedger,
+      timestamp: new Date().toISOString(),
+      payload: { ...params, disputeExpiresAtLedger },
+    });
+
+    return { txHash, status: "SUCCESS", result: undefined };
+  }
+
+  public async anchorExpireDispute(params: {
+    caseId: string;
+  }): Promise<TransactionResult<void>> {
+    this.advanceLedger(1);
+    const caseIdNorm = params.caseId.toLowerCase();
+    const existing = this.cases.get(caseIdNorm);
+    if (!existing) {
+      throw new Error(`Case not found on chain: ${params.caseId}`);
+    }
+    if (existing.status !== "DISPUTED") {
+      throw new Error("InvalidState: case is not in DISPUTED state");
+    }
+    if (
+      existing.disputeExpiresAtLedger !== undefined &&
+      this.currentLedger < existing.disputeExpiresAtLedger
+    ) {
+      throw new Error("DisputeNotExpired: dispute has not yet reached its expiration ledger");
+    }
+
+    const txHash = this.generateTxHash("expire_dispute", caseIdNorm);
+    this.disputes.delete(caseIdNorm);
+    this.resolutions.delete(`${caseIdNorm}:${existing.owner.toLowerCase()}`);
+    if (existing.counterparty) {
+      this.resolutions.delete(`${caseIdNorm}:${existing.counterparty.toLowerCase()}`);
+    }
+
+    this.cases.set(caseIdNorm, {
+      ...existing,
+      status: "BREAK",
+      disputeExpiresAtLedger: undefined,
+    });
+
+    this.transactions.push({
+      txHash,
+      type: "EXPIRE_DISPUTE",
       caseId: params.caseId,
       ledger: this.currentLedger,
       timestamp: new Date().toISOString(),
@@ -291,6 +442,17 @@ export class LiveSorobanEnvironment implements OnChainAnchorService {
       throw new Error(`Case not found on chain: ${params.caseId}`);
     }
 
+    // Verify quorum threshold if quorum > 1
+    const requiredQuorum = existing.observerQuorum ?? 1;
+    if (requiredQuorum > 1) {
+      const distinctObservers = await this.getAttestedObservers(caseIdNorm);
+      if (distinctObservers.length < requiredQuorum) {
+        throw new Error(
+          `ObserverQuorumNotMet: required observer quorum (${requiredQuorum}) not met (found ${distinctObservers.length})`
+        );
+      }
+    }
+
     const txHash = this.generateTxHash("finalize", caseIdNorm);
     this.cases.set(caseIdNorm, {
       ...existing,
@@ -307,7 +469,7 @@ export class LiveSorobanEnvironment implements OnChainAnchorService {
       payload: params,
     });
 
-    return { txHash, status: "SUCCESS", result: undefined };
+    return { txHash, status: "SUCCESS", result: undefined, ledger: this.currentLedger };
   }
 
   public async getCase(caseId: string): Promise<CaseRecord | null> {

@@ -23,7 +23,7 @@ import {
   decodeCaseRecord,
   decodeAttestationRecord,
 } from "./helpers.js";
-import { normalizeContractError } from "./errors.js";
+import { normalizeContractError, MissingTransactionHashError } from "./errors.js";
 import type { CaseRecord, AttestationRecord, TransactionResult, QuorumVerificationResult } from "./types.js";
 import type { StellarClearConfig } from "./config.js";
 
@@ -31,14 +31,14 @@ import type { StellarClearConfig } from "./config.js";
  * Extracts a real transaction hash from a Soroban AssembledTransaction response.
  *
  * NEVER fabricates an identifier. If a real hash cannot be obtained the
- * function throws a typed error so the caller gets an explicit failure rather
- * than silently accepting a fake hash as settlement evidence.
+ * function throws a typed MissingTransactionHashError so the caller gets an
+ * explicit failure rather than silently accepting a fake hash as settlement evidence.
  *
  * @param tx - The value returned by the contract client (AssembledTransaction or similar)
  * @returns The hex transaction hash string
- * @throws {Error} If no real hash is present in the response
+ * @throws {MissingTransactionHashError} If no real hash is present in the response
  */
-function extractTxHash(tx: unknown): string {
+export function extractTxHash(tx: unknown): string {
   if (typeof tx === "object" && tx !== null) {
     const rec = tx as Record<string, unknown>;
     if (typeof rec["txHash"] === "string" && rec["txHash"].length > 0) {
@@ -57,7 +57,7 @@ function extractTxHash(tx: unknown): string {
       }
     }
   }
-  throw new Error(
+  throw new MissingTransactionHashError(
     "SDK_MISSING_TX_HASH: Soroban transaction response did not include a real transaction hash. " +
     "The operation cannot be recorded as settlement evidence without a verifiable on-chain identifier."
   );

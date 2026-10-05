@@ -50,8 +50,20 @@ export class RpcError extends StellarClearError {
   }
 }
 
+export class MissingTransactionHashError extends StellarClearError {
+  constructor(message?: string, details?: unknown) {
+    super(
+      message ??
+        "SDK_MISSING_TX_HASH: Soroban transaction response did not include a real transaction hash. " +
+        "The operation cannot be recorded as settlement evidence without a verifiable on-chain identifier.",
+      "MISSING_TRANSACTION_HASH",
+      details
+    );
+  }
+}
+
 /**
- * Maps numeric contract error codes (1..17) to specific domain errors.
+ * Maps numeric contract error codes (1..21) to specific domain errors.
  */
 export function mapContractErrorCode(code: number, rawMessage?: string): StellarClearError {
   switch (code) {
@@ -89,6 +101,14 @@ export function mapContractErrorCode(code: number, rawMessage?: string): Stellar
       return new ValidationError(rawMessage ?? "Invalid decision for current state");
     case 17:
       return new ValidationError(rawMessage ?? "Invalid ledger sequence");
+    case 18:
+      return new ValidationError(rawMessage ?? "Invalid observer quorum");
+    case 19:
+      return new ValidationError(rawMessage ?? "Required observer quorum threshold was not met");
+    case 20:
+      return new ValidationError(rawMessage ?? "Dispute has not yet expired");
+    case 21:
+      return new ValidationError(rawMessage ?? "Dispute has already expired");
     default:
       return new ContractInvocationError(rawMessage ?? `Contract error code: ${code}`, code);
   }
@@ -106,13 +126,13 @@ export function normalizeContractError(err: unknown): StellarClearError {
     const errorObj = err as Record<string, unknown>;
 
     // Soroban contract error with code
-    if (typeof errorObj.code === "number" && errorObj.code >= 1 && errorObj.code <= 17) {
+    if (typeof errorObj.code === "number" && errorObj.code >= 1 && errorObj.code <= 21) {
       return mapContractErrorCode(errorObj.code, errorObj.message as string | undefined);
     }
 
     // Soroban error with nested simulation error
     const msg = String(errorObj.message ?? errorObj.detail ?? "");
-    for (let i = 1; i <= 17; i++) {
+    for (let i = 1; i <= 21; i++) {
       if (msg.includes(`Error(Contract, #${i})`) || msg.includes(`code ${i}`)) {
         return mapContractErrorCode(i, msg);
       }

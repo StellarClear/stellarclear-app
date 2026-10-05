@@ -100,35 +100,54 @@ Cryptographically verifies an exported Settlement Proof.
 
 ---
 
-## Attestation & Dispute Endpoints
+---
 
-### 11. `POST /v1/cases/:caseId/attestations`
+## Attestation & Quorum Endpoints
+
+### 11. `POST /v1/cases/:caseId/attest`
 Submits an authorized `OWNER`, `COUNTERPARTY`, or `OBSERVER` attestation.
 
 ### 12. `GET /v1/cases/:caseId/attestations`
 Lists all submitted attestations for a case.
 
-### 13. `POST /v1/cases/:caseId/dispute`
-Opens a formal dispute on a broken settlement case with evidence hash.
+### 13. `GET /v1/cases/:caseId/quorum`
+Returns observer quorum threshold, distinct authorized observer count, and verification status (`quorumSatisfied`).
 
-### 14. `POST /v1/cases/:caseId/resolve`
-Submits an agreed resolution commitment.
+---
 
-### 15. `POST /v1/cases/:caseId/finalize`
-Finalizes a matched or resolved settlement case on Soroban.
+## Dispute & Resolution Endpoints
+
+### 14. `POST /v1/cases/:caseId/dispute`
+Opens a formal dispute on a broken settlement case with evidence hash. **Strictly guarded: Can only be called when authoritative case status is `BREAK`**.
+
+### 15. `POST /v1/cases/:caseId/resolve`
+Submits an agreed resolution commitment. **Enforces mutual agreement**: First submission leaves case in `DISPUTED` status; second matching submission transitions case to `RESOLVED`.
+
+### 16. `GET /v1/cases/:caseId/dispute`
+Retrieves durable dispute and resolution records from PostgreSQL (retains evidence across process restarts).
+
+### 17. `POST /v1/cases/:caseId/finalize`
+Finalizes a matched or resolved settlement case on Soroban. **Enforces observer quorum**: returns `409 QUORUM_NOT_MET` if required observer count is not met.
+
+---
+
+## Real-Time Event Streaming
+
+### 18. `WS /v1/events/stream` (Port `3001`)
+WebSocket subscription stream for real-time Soroban contract settlement events with bounded in-memory replay buffer.
 
 ---
 
 ## Consistency & Chain Audit Endpoints
 
-### 16. `GET /v1/cases/:caseId/audit`
+### 19. `GET /v1/cases/:caseId/audit`
 Returns the complete chronological lifecycle audit log.
 
-### 17. `GET /v1/cases/:caseId/verify-consistency`
+### 20. `GET /v1/cases/:caseId/consistency`
 Verifies consistency across DB records, proof commitments, and on-chain contract state.
 
-### 18. `GET /v1/cases/:caseId/chain`
+### 21. `GET /v1/cases/:caseId/onchain`
 Queries live Soroban smart contract state directly.
 
-### 19. `POST /v1/cases/:caseId/verify-chain-proof`
+### 22. `POST /v1/proofs/verify/onchain`
 Validates proof commitments against live on-chain contract state.

@@ -1117,6 +1117,9 @@ export class ApiServer {
           if (message.includes("Cannot finalize case") || message.includes("Expected status")) {
             return this.errorResponse(400, "INVALID_STATE", message, requestId);
           }
+          if (message.includes("ObserverQuorumNotMet") || message.includes("quorum")) {
+            return this.errorResponse(409, "QUORUM_NOT_MET", message, requestId);
+          }
           throw err;
         }
       }

@@ -73,6 +73,12 @@ export class InMemoryDatabaseClient implements IDatabaseClient {
       return { rows, rowCount: rows.length };
     }
 
+    // SELECT dispute_expirations
+    if (normalized.startsWith("SELECT") && normalized.includes("dispute_expirations")) {
+      const rows = this.getTable("dispute_expirations") as unknown as T[];
+      return { rows, rowCount: rows.length };
+    }
+
     // Generic mock query result
     return { rows: [] as T[], rowCount: 0 };
   }

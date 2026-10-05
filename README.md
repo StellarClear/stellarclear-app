@@ -81,10 +81,10 @@ StellarClear combines high-throughput off-chain processing with tamper-evident o
 
 - **API Service (`services/api`)**: Dispatcher providing REST endpoints for case creation, observations, reconciliation, attestations, disputes, and operational health diagnostics.
 - **Matcher Service (`services/matcher`)**: Pure deterministic reconciliation engine performing exact string/decimal arithmetic and break classification.
-- **Indexer Service (`services/indexer`)**: Streaming ledger ingestion service that decodes Soroban contract events and maintains durable checkpoints.
+- **Indexer Service (`services/indexer`)**: Streaming ledger ingestion service that decodes Soroban contract events, maintains failure-safe checkpoints, and provides real-time WebSocket event streaming.
 - **Proof Package (`packages/proof`)**: Canonical deterministic JSON serialization (`RFC 8785`) and SHA-256 commitment generation.
-- **Database Package (`packages/db`)**: Repository abstraction supporting PostgreSQL with strict idempotency and state deduplication.
-- **Client SDK (`packages/sdk`)**: TypeScript client library with typed contract bindings, error normalization, and lifecycle helpers.
+- **Database Package (`packages/db`)**: Repository abstraction supporting PostgreSQL with strict idempotency, dispute evidence persistence, and state deduplication.
+- **Client SDK (`packages/sdk`)**: TypeScript client library with typed contract bindings, error normalization, observer quorum APIs, and lifecycle helpers.
 
 ---
 
@@ -97,6 +97,7 @@ Consider **Company A** (`GBRP...`) and **Company B** (`GA5Z...`) agreeing off-ch
 1. **Case Creation (`OPEN`)**:
    - Company A registers the expected settlement terms via API or SDK.
    - The canonical `termsCommitment` hash is generated and anchored on Soroban via `create_case`.
+   - Observer quorum requirement is configured (default `1`).
 2. **Transaction Observation (`OBSERVED`)**:
    - Company A executes a standard Stellar payment of 1,000 USDC directly to Company B.
    - The payment transaction details (`txHash`, `amount`, `asset`, `destination`, `ledger`) are ingested.
@@ -105,13 +106,15 @@ Consider **Company A** (`GBRP...`) and **Company B** (`GA5Z...`) agreeing off-ch
    - The matcher verifies if amount, asset, destination, reference, deadline, and status match agreed terms.
    - **Clean Match**: Status transitions to `MATCHED`.
    - **Discrepancy (Break)**: Status transitions to `BREAK` with a standardized `BreakCode` recorded on Soroban via `record_break`.
-4. **Dispute & Resolution Path (If Break occurs)**:
-   - Either counterparty submits a dispute with supporting evidence (`DISPUTED`) via `record_dispute`.
-   - Parties or an authorized arbitrator reach an updated agreement, anchoring a `resolutionCommitment` (`RESOLVED`) via `resolve_dispute`.
+4. **Dispute & Mutual Resolution Path (If Break occurs)**:
+   - Either counterparty submits a dispute with supporting evidence (`DISPUTED`) via `open_dispute` (strictly guarded: only permitted from `BREAK` status).
+   - **Mutual Resolution**: Both owner and counterparty must submit matching resolution commitments before the case transitions to `RESOLVED`. The first submission remains `DISPUTED`.
+   - **Dispute Expiration**: If an optional TTL ledger sequence elapses without mutual agreement, any participant can trigger `expire_dispute`, returning the case to `BREAK`.
 5. **Multi-Party Attestation & Proof Generation**:
    - Owner, counterparty, or registered observers submit cryptographic signatures (`CaseAttested`).
    - A self-contained `SettlementProof` bundle is assembled.
 6. **Finalization (`FINALIZED`)**:
+   - Finalization verifies that the required `M-of-N` distinct observer quorum is satisfied.
    - The case is finalized on Soroban via `finalize_case`, immutably locking the record against further state modifications.
 
 ### State Machine
@@ -135,18 +138,20 @@ Consider **Company A** (`GBRP...`) and **Company B** (`GA5Z...`) agreeing off-ch
         │                 │
         │                 ▼
         │          ┌─────────────┐
-        │          │  DISPUTED   │  (Contested with evidence)
-        │          └──────┬──────┘
-        │                 │
-        │                 ▼
-        │          ┌─────────────┐
-        │          │  RESOLVED   │  (Arbitrated / agreed resolution)
-        │          └──────┬──────┘
-        │                 │
-        └────────┬────────┘
-                 ▼
-         ┌───────────────┐
-         │   FINALIZED   │  (Immutably sealed on Soroban)
+        │          │  DISPUTED   │◄───────┐
+        │          └──────┬──────┘        │ (Single resolution /
+        │                 │               │  remains DISPUTED)
+        │       ┌─────────┴─────────┐     │
+        │       │ (Mutual Agreement)│     │
+        │       ▼                   ▼     │
+        │ ┌─────────────┐    (TTL Expired)│
+        │ │  RESOLVED   │    ──► BREAK ───┘
+        │ └──────┬──────┘
+        │        │
+        └────────┼────────┐
+                 ▼        │ (Enforces Observer Quorum)
+         ┌───────────────┐│
+         │   FINALIZED   │◄
          └───────────────┘
 ```
 

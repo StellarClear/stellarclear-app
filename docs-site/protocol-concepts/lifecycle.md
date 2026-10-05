@@ -23,18 +23,20 @@ Every settlement tracked by StellarClear progresses through a deterministic, str
         │                 │
         │                 ▼
         │          ┌─────────────┐
-        │          │  DISPUTED   │  (Contested with evidence)
-        │          └──────┬──────┘
-        │                 │
-        │                 ▼
-        │          ┌─────────────┐
-        │          │  RESOLVED   │  (Arbitrated / agreed resolution)
-        │          └──────┬──────┘
-        │                 │
-        └────────┬────────┘
-                 ▼
-         ┌───────────────┐
-         │   FINALIZED   │  (Immutably sealed on Soroban)
+        │          │  DISPUTED   │◄───────┐
+        │          └──────┬──────┘        │ (Single resolution /
+        │                 │               │  remains DISPUTED)
+        │       ┌─────────┴─────────┐     │
+        │       │ (Mutual Agreement)│     │
+        │       ▼                   ▼     │
+        │ ┌─────────────┐    (TTL Expired)│
+        │ │  RESOLVED   │    ──► BREAK ───┘
+        │ └──────┬──────┘
+        │        │
+        └────────┼────────┐
+                 ▼        │ (Enforces Observer Quorum)
+         ┌───────────────┐│
+         │   FINALIZED   │◄
          └───────────────┘
 ```
 
@@ -44,11 +46,11 @@ Every settlement tracked by StellarClear progresses through a deterministic, str
 | :--- | :--- | :--- | :--- |
 | **`OPEN`** | `Open` | Bilateral terms registered by case owner; `termsCommitment` anchored on Soroban. | `OBSERVED` |
 | **`OBSERVED`** | `Observed` | Payment transaction observed on Stellar ledger; `observationCommitment` anchored on Soroban. | `MATCHED`, `BREAK` |
-| **`MATCHED`** | `Matched` | Matcher verifies exact alignment between expected terms and observed transaction. | `FINALIZED` |
+| **`MATCHED`** | `Matched` | Matcher verifies exact alignment between expected terms and observed transaction. | `FINALIZED` (Observer Quorum satisfied) |
 | **`BREAK`** | `Break` | Matcher detects a parameter variance and assigns a standardized `BreakCode`. | `DISPUTED` |
-| **`DISPUTED`** | `Disputed` | Case owner or counterparty contests a break by submitting supporting evidence. | `RESOLVED` |
-| **`RESOLVED`** | `Resolved` | Parties or an authorized arbitrator submit matching `resolutionCommitment` terms. | `FINALIZED` |
-| **`FINALIZED`** | `Finalized` | Settlement is immutably sealed on Soroban. No further mutations permitted. | *Terminal State* |
+| **`DISPUTED`** | `Disputed` | Case owner or counterparty contests a break. Single resolution keeps case DISPUTED. | `RESOLVED` (Mutual agreement), `BREAK` (TTL Expired) |
+| **`RESOLVED`** | `Resolved` | Both parties submit matching `resolutionCommitment` terms on-chain. | `FINALIZED` (Observer Quorum satisfied) |
+| **`FINALIZED`** | `Finalized` | Settlement is immutably sealed on Soroban once observer quorum is met. | *Terminal State* |
 
 ## Worked Numerical Example
 

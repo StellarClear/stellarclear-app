@@ -92,6 +92,8 @@ export interface DbContractEvent {
   topic_xdr: string;
   data_xdr: string;
   cursor: string;
+  /** Decoded event payload produced by the indexer decoder (durable replay source). */
+  payload?: Record<string, unknown> | null;
   created_at?: Date | string;
 }
 

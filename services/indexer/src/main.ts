@@ -3,18 +3,24 @@ import { rpc } from "@stellar/stellar-sdk";
 import { createDatabaseClient, type IDatabaseClient } from "@stellarclear/db";
 import { IndexerService, type IndexerConfig } from "./service.js";
 import type { RawStellarEvent } from "./decoder.js";
+import { startEventStreamServer, type EventStreamServer } from "./ws-server.js";
 
 export interface IndexerWorkerConfig extends IndexerConfig {
   rpcUrl: string;
   databaseUrl: string;
   pollIntervalMs: number;
   startLedger?: number;
+  /** When set, serves the realtime WebSocket event stream on this port. */
+  streamPort?: number;
+  streamHost?: string;
+  streamAuthToken?: string;
 }
 
 export interface IndexerWorkerInstance {
   service: IndexerService;
   dbClient: IDatabaseClient;
   config: IndexerWorkerConfig;
+  streamServer?: EventStreamServer;
   pollOnce: () => Promise<{ ingestedCount: number; skippedCount: number; errors: string[] }>;
   stop: () => Promise<void>;
 }
@@ -35,6 +41,12 @@ export function loadIndexerConfigFromEnv(
       : 5000,
     batchSize: batchStr ? parseInt(batchStr, 10) : 100,
     startLedger: env["START_LEDGER"] ? parseInt(env["START_LEDGER"], 10) : undefined,
+    streamPort: env["INDEXER_STREAM_PORT"] ? parseInt(env["INDEXER_STREAM_PORT"], 10) : undefined,
+    streamHost: env["INDEXER_STREAM_HOST"] || undefined,
+    streamAuthToken: env["INDEXER_STREAM_AUTH_TOKEN"] || undefined,
+    streamBufferSize: env["INDEXER_STREAM_BUFFER_SIZE"]
+      ? parseInt(env["INDEXER_STREAM_BUFFER_SIZE"], 10)
+      : undefined,
   };
 }
 
@@ -51,6 +63,20 @@ export async function startIndexerWorker(
   const dbClient = customDbClient ?? createDatabaseClient({ databaseUrl: config.databaseUrl });
   const service = new IndexerService(dbClient, config);
   await service.init();
+
+  let streamServer: EventStreamServer | undefined;
+  if (config.streamPort !== undefined) {
+    streamServer = await startEventStreamServer({
+      stream: service.stream,
+      durable: service.durableReplay,
+      network: config.network,
+      contractId: config.contractId,
+      port: config.streamPort,
+      host: config.streamHost,
+      authToken: config.streamAuthToken,
+    });
+    console.log(`[StellarClear Indexer] Realtime event stream listening on port ${streamServer.port}`);
+  }
 
   const rpcServer = new rpc.Server(config.rpcUrl, {
     allowHttp: config.rpcUrl.startsWith("http://"),
@@ -132,11 +158,12 @@ export async function startIndexerWorker(
       clearTimeout(timer);
       timer = null;
     }
+    await streamServer?.close();
     await dbClient.close();
     console.log("[StellarClear Indexer] Worker stopped.");
   };
 
-  return { service, dbClient, config, pollOnce, stop };
+  return { service, dbClient, config, streamServer, pollOnce, stop };
 }
 
 // Auto-start when executed directly as entrypoint

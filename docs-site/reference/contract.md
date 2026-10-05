@@ -71,19 +71,33 @@ Records a reconciliation discrepancy with a standardized break code.
 - **Emitted Event**: `CaseBroken(case_id, observer, break_code)`
 - **Errors**: `NotFound (2)`, `ObserverNotRegistered (5)`, `InvalidState (7)`
 
-### 6. `open_dispute`
-Opens a formal dispute on a broken settlement case.
-- **Parameters**:
+### 6. `open_dispute` / `open_dispute_with_ttl`
+Opens a formal dispute on a broken settlement case (optionally with an expiration TTL window).
+- **Parameters (`open_dispute`)**:
   - `initiator: Address`
   - `case_id: BytesN<32>`
   - `dispute_commitment: BytesN<32>`
+- **Parameters (`open_dispute_with_ttl`)**:
+  - `initiator: Address`
+  - `case_id: BytesN<32>`
+  - `dispute_commitment: BytesN<32>`
+  - `dispute_ttl_ledgers: u32`
 - **Authorization**: Owner or Counterparty (`initiator.require_auth()`)
 - **Return Type**: `Result<void, Error>`
-- **State Effect**: Transitions case status from `Break` to `Disputed`.
+- **State Effect**: Transitions case status from `Break` to `Disputed`, records dispute commitment and optional `dispute_expires_at_ledger`.
 - **Emitted Event**: `DisputeOpened(case_id, initiator, dispute_commitment)`
-- **Errors**: `NotFound (2)`, `Unauthorized (6)`, `InvalidState (7)`, `InvalidCommitment (9)`
+- **Errors**: `NotFound (2)`, `Unauthorized (6)`, `InvalidState (7)`, `InvalidCommitment (9)`, `InvalidExpiration (8)`
 
-### 7. `submit_resolution`
+### 7. `expire_dispute`
+Permissionlessly expires an active dispute whose TTL ledger window has elapsed.
+- **Parameters**: `case_id: BytesN<32>`
+- **Authorization**: None (Permissionless operational trigger)
+- **Return Type**: `Result<void, Error>`
+- **State Effect**: Transitions case status from `Disputed` back to `Break`, clears active resolution submissions.
+- **Emitted Event**: `DisputeExpired(case_id, expired_at_ledger)`
+- **Errors**: `NotFound (2)`, `InvalidState (7)`, `DisputeNotExpired (20)`, `DisputeAlreadyExpired (21)`
+
+### 8. `submit_resolution`
 Submits bilateral resolution commitment terms.
 - **Parameters**:
   - `resolver: Address`
@@ -91,50 +105,63 @@ Submits bilateral resolution commitment terms.
   - `resolution_commitment: BytesN<32>`
 - **Authorization**: Owner or Counterparty (`resolver.require_auth()`)
 - **Return Type**: `Result<void, Error>`
-- **State Effect**: Stores resolution commitment; transitions status to `Resolved` once both parties agree.
+- **State Effect**: Stores resolution commitment; transitions status to `Resolved` once both parties submit matching commitments.
 - **Emitted Event**: `DisputeResolved(case_id, resolution_commitment)`
-- **Errors**: `NotFound (2)`, `Unauthorized (6)`, `InvalidState (7)`, `ResolutionAlreadySubmitted (13)`, `ResolutionMismatch (14)`
+- **Errors**: `NotFound (2)`, `Unauthorized (6)`, `InvalidState (7)`, `ResolutionAlreadySubmitted (13)`, `ResolutionMismatch (14)`, `DisputeAlreadyExpired (21)`
 
-### 8. `submit_attestation`
+### 9. `submit_attestation` / `submit_observer_attestation`
 Submits a cryptographic attestation for an active settlement case.
-- **Parameters**:
+- **Parameters (`submit_attestation`)**:
   - `case_id: BytesN<32>`
   - `role: AttestationRole`
   - `commitment: BytesN<32>`
-- **Authorization**: Attestor (`signer.require_auth()`)
+- **Parameters (`submit_observer_attestation`)**:
+  - `observer: Address`
+  - `case_id: BytesN<32>`
+  - `commitment: BytesN<32>`
+- **Authorization**: Attestor / Observer (`signer.require_auth()`)
 - **Return Type**: `Result<void, Error>`
 - **State Effect**: Persists `Attestation` record under `DataKey::Attestation(case_id, signer)`.
 - **Emitted Event**: `CaseAttested(case_id, signer, role)`
-- **Errors**: `NotFound (2)`, `AttestationAlreadyExists (12)`, `InvalidCommitment (9)`
+- **Errors**: `NotFound (2)`, `AttestationAlreadyExists (12)`, `InvalidCommitment (9)`, `ObserverNotRegistered (5)`
 
-### 9. `finalize_case`
-Immutably seals a matched or resolved settlement case.
+### 10. `set_case_quorum` & `get_case_quorum`
+Configures and queries the required observer quorum threshold for a settlement case.
+- **Parameters (`set_case_quorum`)**: `owner: Address`, `case_id: BytesN<32>`, `quorum: u32`
+- **Parameters (`get_case_quorum`)**: `case_id: BytesN<32>`
+- **Authorization**: Case Owner (`owner.require_auth()`) for setter; public for getter.
+- **Return Type**: `Result<void, Error>` (setter) / `Result<u32, Error>` (getter)
+- **Emitted Event**: `CaseQuorumSet(case_id, quorum)`
+- **Errors**: `NotFound (2)`, `Unauthorized (6)`, `InvalidObserverQuorum (18)`
+
+### 11. `finalize_case`
+Immutably seals a matched or resolved settlement case once observer quorum is satisfied.
 - **Parameters**: `case_id: BytesN<32>`
 - **Authorization**: Case Owner (`owner.require_auth()`)
 - **Return Type**: `Result<void, Error>`
-- **State Effect**: Transitions status to `Finalized` and records `finalized_at_ledger`.
+- **State Effect**: Validates `distinctObserverCount >= observer_quorum`; transitions status to `Finalized` and records `finalized_at_ledger`.
 - **Emitted Event**: `CaseFinalized(case_id, finalized_at_ledger)`
-- **Errors**: `NotFound (2)`, `Unauthorized (6)`, `InvalidState (7)`
+- **Errors**: `NotFound (2)`, `Unauthorized (6)`, `InvalidState (7)`, `ObserverQuorumNotMet (19)`
 
-### 10. `get_case`
+### 12. `get_case`
 Reads full on-chain settlement case record.
 - **Parameters**: `case_id: BytesN<32>`
 - **Authorization**: Public (Read-Only)
 - **Return Type**: `Result<SettlementCase, Error>`
 
-### 11. `get_attestation`
+### 13. `get_attestation`
 Reads an attestation record by case ID and attestor address.
 - **Parameters**: `case_id: BytesN<32>`, `attestor: Address`
 - **Authorization**: Public (Read-Only)
 - **Return Type**: `Option<Attestation>`
 
-### 12. `get_resolution`
+### 14. `get_resolution`
 Reads resolution commitment by case ID and resolver address.
 - **Parameters**: `case_id: BytesN<32>`, `resolver: Address`
 - **Authorization**: Public (Read-Only)
 - **Return Type**: `Option<BytesN<32>>`
 
-### 13. Observer Whitelist Management
+### 15. Observer Whitelist Management
 - **`add_observer({ observer: Address })`**: Admin-only. Registers new observer. Emits `ObserverAdded`.
 - **`remove_observer({ observer: Address })`**: Admin-only. Revokes observer. Emits `ObserverRemoved`.
 - **`is_observer({ observer: Address })`**: Public. Returns boolean.

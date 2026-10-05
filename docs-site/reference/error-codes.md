@@ -25,6 +25,10 @@ The `SettlementRegistry` contract defines stable numeric error codes returned on
 | **`15`** | `MissingRequiredAttestation` | Required participant attestation is missing. |
 | **`16`** | `InvalidDecision` | Decision tag is invalid for the current case state. |
 | **`17`** | `InvalidLedger` | Observation ledger is zero or in the future relative to current ledger. |
+| **`18`** | `InvalidObserverQuorum` | Observer quorum threshold must be a positive integer. |
+| **`19`** | `ObserverQuorumNotMet` | Required observer quorum threshold was not met. |
+| **`20`** | `DisputeNotExpired` | Dispute has not yet expired; current ledger sequence is before expiration ledger. |
+| **`21`** | `DisputeAlreadyExpired` | Dispute has already expired; resolution submissions are no longer accepted. |
 
 ---
 
@@ -49,6 +53,8 @@ API errors are returned in a standardized, sanitized JSON envelope:
 | **`401`** | `UNAUTHORIZED` | Request missing valid authorization credentials. |
 | **`403`** | `FORBIDDEN` | Signer is not authorized to submit attestations or execute action for case. |
 | **`404`** | `NOT_FOUND` | Case ID, attestation, or proof record does not exist. |
+| **`409`** | `CONFLICT` | Resource conflict or duplicate case identifier. |
+| **`409`** | `QUORUM_NOT_MET` | Cannot finalize case because required distinct observer quorum has not been met. |
 | **`409`** | `IDEMPOTENCY_CONFLICT` | Reused idempotency key with conflicting payload. |
 | **`500`** | `INTERNAL_ERROR` | Internal server or storage exception (sanitized in production). |
 | **`503`** | `NOT_READY` | Readiness probe failed due to database or Soroban RPC unavailability. |

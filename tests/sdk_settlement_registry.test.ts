@@ -1,9 +1,13 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { Buffer } from "buffer";
 import {
   SettlementRegistryOperations,
   StellarClearClient,
   Networks,
+  extractTxHash,
+  extractSimulatedTxHash,
+  MissingTransactionHashError,
 } from "@stellarclear/sdk";
 import type { ExpectedSettlement, ObservedSettlement } from "@stellarclear/schemas";
 
@@ -92,5 +96,93 @@ describe("SDK Package - SettlementRegistry Client Operations", () => {
         SAMPLE_TERMS.deadline
       );
     });
+  });
+});
+
+describe("SDK Package - Transaction Hash Validation & Simulation Mode (TASK H)", () => {
+  it("extracts real transaction hash from txHash property", () => {
+    const hash = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
+    assert.strictEqual(extractTxHash({ txHash: hash }), hash);
+  });
+
+  it("extracts real transaction hash from hash property", () => {
+    const hash = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
+    assert.strictEqual(extractTxHash({ hash }), hash);
+  });
+
+  it("extracts real transaction hash from raw.hash() function", () => {
+    const rawHashBuf = Buffer.from("deadbeefcafebabe0123456789abcdefdeadbeefcafebabe0123456789abcdef", "hex");
+    const mockTx = {
+      raw: {
+        hash: () => rawHashBuf,
+      },
+    };
+    assert.strictEqual(
+      extractTxHash(mockTx),
+      "deadbeefcafebabe0123456789abcdefdeadbeefcafebabe0123456789abcdef"
+    );
+  });
+
+  it("fails with MissingTransactionHashError when transaction response lacks real tx hash", () => {
+    assert.throws(
+      () => extractTxHash({}),
+      (err: unknown) => {
+        const missingErr = err as MissingTransactionHashError;
+        assert.ok(missingErr instanceof MissingTransactionHashError);
+        assert.strictEqual(missingErr.code, "MISSING_TRANSACTION_HASH");
+        assert.ok(missingErr.message.includes("SDK_MISSING_TX_HASH"));
+        return true;
+      }
+    );
+
+    assert.throws(
+      () => extractTxHash(null),
+      MissingTransactionHashError
+    );
+
+    assert.throws(
+      () => extractTxHash({ txHash: "" }),
+      MissingTransactionHashError
+    );
+  });
+
+  it("explicitly marks simulation mode hashes with sim_ prefix", () => {
+    const simHash = extractSimulatedTxHash("createCase_case1");
+    assert.strictEqual(simHash, "sim_createCase_case1");
+    assert.ok(simHash.startsWith("sim_"));
+    // Simulation hash is never a valid 64-character hex Stellar tx hash
+    assert.notStrictEqual(simHash.length, 64);
+  });
+
+  it("rejects simulated response without real hash during SDK contract operation", async () => {
+    const mockClient = {
+      create_case: async () => ({
+        // Simulation response with NO hash property
+        result: undefined,
+      }),
+    };
+
+    const client = new StellarClearClient({
+      network: Networks.TESTNET.network,
+      networkPassphrase: Networks.TESTNET.networkPassphrase,
+      rpcUrl: Networks.TESTNET.rpcUrl,
+      contractId: VALID_CONTRACT_ID,
+    });
+
+    const ops = new SettlementRegistryOperations({
+      client: mockClient as any,
+      config: client.config,
+    });
+
+    await assert.rejects(
+      async () => {
+        await ops.createCase(SAMPLE_TERMS);
+      },
+      (err: unknown) => {
+        assert.ok(err instanceof MissingTransactionHashError);
+        assert.strictEqual((err as MissingTransactionHashError).code, "MISSING_TRANSACTION_HASH");
+        return true;
+      }
+    );
   });
 });

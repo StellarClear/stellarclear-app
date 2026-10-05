@@ -17,6 +17,8 @@ pub struct SettlementCase {
     pub decision: Decision,
     pub created_at_ledger: u32,
     pub finalized_at_ledger: Option<u32>,
+    pub observer_quorum: u32,
+    pub dispute_expires_at_ledger: Option<u32>,
 }
 ```
 
@@ -46,7 +48,7 @@ import { StellarClearClient } from "@stellarclear/sdk";
 
 const client = new StellarClearClient({
   network: "testnet",
-  contractId: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+  contractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
   rpcUrl: "https://soroban-testnet.stellar.org",
 });
 
@@ -56,7 +58,12 @@ const client = new StellarClearClient({
 // - client.registry.recordMatch({ observer, caseId }, options)
 // - client.registry.recordBreak({ observer, caseId, breakCode }, options)
 // - client.registry.submitAttestation({ attestor, caseId, role, commitment }, options)
+// - client.registry.submitObserverAttestation({ observer, caseId, commitment }, options)
+// - client.registry.setCaseQuorum({ owner, caseId, quorum }, options)
+// - client.registry.getCaseQuorum(caseId, options)
 // - client.registry.openDispute({ initiator, caseId, disputeCommitment }, options)
+// - client.registry.openDisputeWithTtl({ initiator, caseId, disputeCommitment, disputeTtlLedgers }, options)
+// - client.registry.expireDispute({ caseId }, options)
 // - client.registry.submitResolution({ resolver, caseId, resolutionCommitment }, options)
 // - client.registry.finalizeCase(caseId, options)
 // - client.registry.getCase(caseId, options)
@@ -76,12 +83,12 @@ import { IndexerService } from "@stellarclear/indexer";
 
 const indexer = new IndexerService({
   network: "testnet",
-  contractId: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM",
+  contractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
   rpcUrl: "https://soroban-testnet.stellar.org",
   pollIntervalMs: 2000,
 }, dbClient);
 
-// Starts resilient event polling and DB indexing
+// Starts resilient event polling, DB indexing, and WebSocket streaming
 await indexer.start();
 ```
 
@@ -91,35 +98,39 @@ await indexer.start();
 - `CaseMatched`: Case ID, matched decision.
 - `CaseBroken`: Case ID, break code.
 - `CaseAttested`: Case ID, attestor, role, commitment.
+- `CaseQuorumSet`: Case ID, required quorum.
 - `CaseDisputed`: Case ID, initiator, dispute commitment.
 - `CaseResolved`: Case ID, resolver, resolution commitment.
+- `DisputeExpired`: Case ID, expired at ledger.
 - `CaseFinalized`: Case ID, final ledger sequence.
 
 ---
 
 ## Contract Error Handling & Normalization
 
-Soroban numeric error codes are converted into typed TypeScript error instances (`ContractError`):
+Soroban numeric error codes are converted into typed TypeScript error instances (`StellarClearError`):
 
-| Contract Error Code | Error Symbol | Description |
-|:---|:---|:---|
-| 1 | `CaseAlreadyExists` | Case ID already created on-chain |
-| 2 | `CaseNotFound` | Case ID not found in contract storage |
-| 3 | `CaseExpired` | Current ledger sequence exceeds `expires_at_ledger` |
-| 4 | `CaseNotOpen` | Case is not in OPEN status |
-| 5 | `CaseNotObserved` | Case has not had an observation recorded |
-| 6 | `CaseAlreadyObserved` | Case has already recorded an observation |
-| 7 | `CaseNotBroken` | Case is not in BREAK status when opening dispute |
-| 8 | `CaseNotDisputed` | Case is not in DISPUTED status |
-| 9 | `CaseNotReadyForFinalization` | Case status is neither MATCHED nor RESOLVED |
-| 10 | `CaseAlreadyFinalized` | Finalize called on already finalized case |
-| 11 | `Unauthorized` | Caller address is not authorized for this operation |
-| 12 | `InvalidAttestation` | Attestation commitment does not match case |
-| 13 | `AttestationAlreadyExists` | Attestor already submitted an attestation |
-| 14 | `InvalidResolution` | Resolution commitment is malformed |
-| 15 | `InvalidObservation` | Observation commitment or transaction hash is invalid |
-| 16 | `DeadlinePassed` | Deadline has elapsed |
-| 17 | `InvalidCaseState` | Invalid state transition attempt |
-| 18 | `AlreadyDisputed` | Dispute already active for case |
-| 19 | `AlreadyResolved` | Resolution already submitted for case |
-| 20 | `InvalidBreakCode` | Unrecognized or malformed break code |
+| Contract Error Code | Error Symbol | Description | Normalized SDK Error |
+|:---|:---|:---|:---|
+| 1 | `AlreadyInitialized` | Contract constructor already executed | `ConflictError` |
+| 2 | `NotFound` | Requested record not found | `NotFoundError` |
+| 3 | `CaseAlreadyExists` | Case ID already created on-chain | `ConflictError` |
+| 4 | `ObserverAlreadyRegistered` | Observer address already whitelisted | `ConflictError` |
+| 5 | `ObserverNotRegistered` | Caller is not a registered observer | `NotFoundError` |
+| 6 | `Unauthorized` | Caller lacks authorization for operation | `UnauthorizedError` |
+| 7 | `InvalidState` | Target case is not in valid state | `ValidationError` |
+| 8 | `InvalidExpiration` | Expiration ledger not greater than current | `ValidationError` |
+| 9 | `InvalidCommitment` | Commitment payload is zero or invalid | `ValidationError` |
+| 10 | `CounterpartyRequired` | Operation requires a counterparty address | `ValidationError` |
+| 11 | `CounterpartyNotAllowed` | Counterparty cannot be case owner | `ValidationError` |
+| 12 | `AttestationAlreadyExists` | Attestation already submitted by party | `ConflictError` |
+| 13 | `ResolutionAlreadySubmitted` | Resolution already submitted by party | `ConflictError` |
+| 14 | `ResolutionMismatch` | Resolution commitments do not match | `ValidationError` |
+| 15 | `MissingRequiredAttestation` | Required attestation missing for finalize | `ValidationError` |
+| 16 | `InvalidDecision` | Decision invalid for current state | `ValidationError` |
+| 17 | `InvalidLedger` | Observation ledger invalid or in future | `ValidationError` |
+| 18 | `InvalidObserverQuorum` | Observer quorum must be positive integer | `ValidationError` |
+| 19 | `ObserverQuorumNotMet` | Required observer quorum threshold not met | `ValidationError` |
+| 20 | `DisputeNotExpired` | Current ledger is before dispute expiration | `ValidationError` |
+| 21 | `DisputeAlreadyExpired` | Dispute has expired; resolutions rejected | `ValidationError` |
+

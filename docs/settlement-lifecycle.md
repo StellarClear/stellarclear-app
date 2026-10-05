@@ -10,10 +10,12 @@ stateDiagram-v2
     OPEN --> OBSERVED: Transaction Observed (observation commitment)
     OBSERVED --> MATCHED: Reconciliation Passes
     OBSERVED --> BREAK: Reconciliation Fails
-    MATCHED --> FINALIZED: Finalized on Soroban
+    MATCHED --> FINALIZED: Finalized on Soroban (Quorum Satisfied)
     BREAK --> DISPUTED: Dispute Opened (evidence commitment)
-    DISPUTED --> RESOLVED: Dispute Resolved (resolution commitment)
-    RESOLVED --> FINALIZED: Finalized on Soroban
+    DISPUTED --> DISPUTED: Single Resolution Submitted
+    DISPUTED --> RESOLVED: Both Parties Submit Matching Commitments
+    DISPUTED --> BREAK: Dispute Expired (TTL reached)
+    RESOLVED --> FINALIZED: Finalized on Soroban (Quorum Satisfied)
     FINALIZED --> [*]
 ```
 
@@ -26,6 +28,7 @@ stateDiagram-v2
 - **Off-Chain**: Validates `ExpectedSettlement` schema with exact decimal amount string.
 - **Commitment**: `termsCommitment = SHA256(formatDomainDocument("STELLARCLEAR/TERMS/V1", expected))`.
 - **On-Chain**: `SettlementRegistry.create_case(case_id, owner, counterparty, terms_commitment, expires_at_ledger)`.
+- **Quorum**: Sets case-level `observer_quorum` (defaults to 1; configurable via `set_case_quorum`).
 - **Status**: `OPEN`.
 
 ### 2. Transaction Observation (`OBSERVED`)
@@ -68,7 +71,20 @@ When reconciliation fails, one or more standardized break codes are generated:
 
 ---
 
-## Dispute & Resolution Workflow
+## Dispute, Mutual Resolution & Expiration Workflow
+
+The dispute lifecycle enforces strict integrity rules to prevent unilateral state changes or fabricated resolutions:
+
+1. **BREAK-Only Guard**: A dispute can only be opened when the authoritative case status is `BREAK`. Cases in `OPEN` or `OBSERVED` status strictly reject dispute opening.
+2. **Mutual Resolution Requirement**: Resolving a dispute requires **both** the case owner and counterparty to submit matching resolution commitments.
+   - **First resolution submission**: Case remains in `DISPUTED` state. The submitted resolver and commitment are durably persisted in PostgreSQL.
+   - **Second matching submission**: On-chain contract transitions to `RESOLVED`, emits `DisputeResolved`, and the indexer updates the database state to `RESOLVED`.
+   - **Second non-matching submission**: Case remains `DISPUTED`; API exposes `mutualResolutionAchieved: false` without falsely marking the case resolved.
+3. **Dispute Expiration (TTL)**:
+   - When a dispute is opened with a TTL ledger window via `open_dispute_with_ttl`, an expiration sequence `dispute_expires_at_ledger` is set.
+   - If the TTL elapses without mutual agreement, any party can permissionlessly trigger `expire_dispute`.
+   - The contract transitions the case back to `BREAK`, emits `DisputeExpired`, and clears active resolution attempts.
+   - The indexer processes `DisputeExpired` idempotently, updating durable off-chain state.
 
 ```mermaid
 sequenceDiagram
@@ -77,6 +93,7 @@ sequenceDiagram
     actor Counterparty as Counterparty
     participant API as StellarClear API
     participant Registry as Soroban SettlementRegistry
+    participant Indexer as Streaming Indexer
 
     Note over Owner,Registry: Case is in BREAK state
     Owner->>API: POST /v1/cases/:caseId/dispute (reason, evidence)
@@ -84,21 +101,37 @@ sequenceDiagram
     Registry-->>API: txHash (Case status: DISPUTED)
     API-->>Owner: 201 Created (DISPUTED)
 
-    Counterparty->>API: POST /v1/cases/:caseId/resolve (resolutionType, agreedAmount, details)
+    Note over Owner,Registry: First resolution submission: remains DISPUTED
+    Owner->>API: POST /v1/cases/:caseId/resolve (resolutionType, commitment)
     API->>Registry: submit_resolution(resolver, resolution_commitment)
-    Registry-->>API: txHash (Case status: RESOLVED)
-    API-->>Counterparty: 200 OK (RESOLVED)
+    Registry-->>API: txHash (Case remains: DISPUTED)
+    API-->>Owner: 200 OK (status: DISPUTED, mutualResolutionAchieved: false)
 
-    Owner->>API: POST /v1/cases/:caseId/finalize
-    API->>Registry: finalize_case(case_id)
-    Registry-->>API: txHash (Case status: FINALIZED)
-    API-->>Owner: 200 OK (FINALIZED)
+    Note over Owner,Registry: Second matching submission: becomes RESOLVED
+    Counterparty->>API: POST /v1/cases/:caseId/resolve (resolutionType, matching_commitment)
+    API->>Registry: submit_resolution(resolver, matching_commitment)
+    Registry-->>API: txHash (Case status: RESOLVED)
+    Registry-->>Indexer: DisputeResolved Event
+    Indexer->>API: Updates DB status: RESOLVED
+    API-->>Counterparty: 200 OK (status: RESOLVED, mutualResolutionAchieved: true)
 ```
+
+---
+
+## Observer Quorum & Multi-Observer Verification
+
+For institutional settlement verification, StellarClear supports multi-oracle `M-of-N` observer quorums:
+
+- **Case-Level Quorum**: Configured at case creation or via `set_case_quorum(case_id, quorum)`. Defaults to `1`.
+- **Distinct Authorized Observers**: Verification counts only distinct, registered observers who submitted an `OBSERVER` attestation.
+- **Strict Role Separation**: Owner and counterparty attestations are strictly excluded from observer quorum counts.
+- **Duplicate Protection**: Multiple attestations from the same observer address count only once.
+- **Finalization Enforcement**: Finalizing a `MATCHED` or `RESOLVED` case requires `distinctObserverCount >= requiredObserverQuorum`. If unsatisfied, finalization is rejected with `409 QUORUM_NOT_MET` (contract error `ObserverQuorumNotMet`).
 
 ---
 
 ## Case Finalization (`FINALIZED`)
 
-- **Eligibility**: Case must be in `MATCHED` or `RESOLVED` state.
+- **Eligibility**: Case must be in `MATCHED` or `RESOLVED` state, and required observer quorum must be satisfied.
 - **Action**: Invokes `SettlementRegistry.finalize_case(case_id)`.
 - **Result**: Immutably closes the settlement case on Soroban, recording `finalized_at_ledger` and `finalization_tx_hash`. No further state modifications are permitted.
