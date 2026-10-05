@@ -24,24 +24,57 @@ import {
   decodeAttestationRecord,
 } from "./helpers.js";
 import { normalizeContractError } from "./errors.js";
-import type { CaseRecord, AttestationRecord, TransactionResult } from "./types.js";
+import type { CaseRecord, AttestationRecord, TransactionResult, QuorumVerificationResult } from "./types.js";
 import type { StellarClearConfig } from "./config.js";
 
+/**
+ * Extracts a real transaction hash from a Soroban AssembledTransaction response.
+ *
+ * NEVER fabricates an identifier. If a real hash cannot be obtained the
+ * function throws a typed error so the caller gets an explicit failure rather
+ * than silently accepting a fake hash as settlement evidence.
+ *
+ * @param tx - The value returned by the contract client (AssembledTransaction or similar)
+ * @returns The hex transaction hash string
+ * @throws {Error} If no real hash is present in the response
+ */
 function extractTxHash(tx: unknown): string {
   if (typeof tx === "object" && tx !== null) {
     const rec = tx as Record<string, unknown>;
-    if (typeof rec["txHash"] === "string") return rec["txHash"];
-    if (typeof rec["hash"] === "string") return rec["hash"];
+    if (typeof rec["txHash"] === "string" && rec["txHash"].length > 0) {
+      return rec["txHash"];
+    }
+    if (typeof rec["hash"] === "string" && rec["hash"].length > 0) {
+      return rec["hash"];
+    }
     const raw = rec["raw"] as { hash?: () => { toString: (fmt: string) => string } } | undefined;
     if (typeof raw?.hash === "function") {
       try {
-        return raw.hash().toString("hex");
+        const h = raw.hash().toString("hex");
+        if (h && h.length > 0) return h;
       } catch {
-        // ignore
+        // fall through to error
       }
     }
   }
-  return `sim_${Date.now()}`;
+  throw new Error(
+    "SDK_MISSING_TX_HASH: Soroban transaction response did not include a real transaction hash. " +
+    "The operation cannot be recorded as settlement evidence without a verifiable on-chain identifier."
+  );
+}
+
+/**
+ * Extracts a transaction hash in SIMULATION / TEST mode only.
+ *
+ * This path is explicitly marked as simulation-only and must never be called
+ * from production code paths. Returns a deterministic stub prefixed with
+ * "sim_" so it can never be mistaken for a real Stellar transaction hash.
+ *
+ * @param label - A stable label for the simulated operation (not a timestamp)
+ * @internal - test/simulation use only
+ */
+export function extractSimulatedTxHash(label: string): string {
+  return `sim_${label}`;
 }
 
 export interface SettlementRegistryOperationsOptions {
@@ -419,4 +452,171 @@ export class SettlementRegistryOperations {
       throw normalizeContractError(err);
     }
   }
+
+  /**
+   * Reads the configured observer quorum threshold for a case.
+   */
+  public async getCaseQuorum(
+    caseId: string,
+    options?: contract.MethodOptions
+  ): Promise<number> {
+    try {
+      const caseIdBuffer = Buffer.from(caseId, "hex");
+      const tx = await this.contractClient.get_case_quorum(
+        { case_id: caseIdBuffer },
+        options
+      );
+      return tx.result;
+    } catch (err: unknown) {
+      throw normalizeContractError(err);
+    }
+  }
+
+  /**
+   * Owner-authorized: configures the required observer quorum threshold for a case.
+   */
+  public async setCaseQuorum(
+    caseId: string,
+    quorum: number,
+    options?: contract.MethodOptions
+  ): Promise<TransactionResult<void>> {
+    try {
+      const caseIdBuffer = Buffer.from(caseId, "hex");
+      const tx = await this.contractClient.set_case_quorum(
+        { case_id: caseIdBuffer, quorum },
+        options
+      );
+      const signAndSend = (tx as any).signAndSend;
+      if (typeof signAndSend === "function") {
+        const sentTx = await signAndSend.call(tx);
+        const txHash = extractTxHash(sentTx);
+        return { txHash, status: "SUCCESS", result: undefined };
+      }
+      const txHash = extractTxHash(tx);
+      return { txHash, status: "SUCCESS", result: undefined };
+    } catch (err: unknown) {
+      throw normalizeContractError(err);
+    }
+  }
+
+  /**
+   * Reads the list of distinct observer addresses that submitted attestations for a case.
+   */
+  public async getAttestedObservers(
+    caseId: string,
+    options?: contract.MethodOptions
+  ): Promise<string[]> {
+    try {
+      const caseIdBuffer = Buffer.from(caseId, "hex");
+      const tx = await this.contractClient.get_attested_observers(
+        { case_id: caseIdBuffer },
+        options
+      );
+      return tx.result ?? [];
+    } catch (err: unknown) {
+      throw normalizeContractError(err);
+    }
+  }
+
+  /**
+   * Submits an observer attestation under multi-observer quorum semantics.
+   */
+  public async submitObserverAttestation(
+    caseId: string,
+    observer: string,
+    commitment: string | Buffer,
+    options?: contract.MethodOptions
+  ): Promise<TransactionResult<void>> {
+    try {
+      const caseIdBuffer = Buffer.from(caseId, "hex");
+      const commitmentBuffer = Buffer.isBuffer(commitment)
+        ? commitment
+        : Buffer.from(commitment, "hex");
+      const tx = await this.contractClient.submit_observer_attestation(
+        { case_id: caseIdBuffer, observer, commitment: commitmentBuffer },
+        options
+      );
+      const signAndSend = (tx as any).signAndSend;
+      if (typeof signAndSend === "function") {
+        const sentTx = await signAndSend.call(tx);
+        const txHash = extractTxHash(sentTx);
+        return { txHash, status: "SUCCESS", result: undefined };
+      }
+      const txHash = extractTxHash(tx);
+      return { txHash, status: "SUCCESS", result: undefined };
+    } catch (err: unknown) {
+      throw normalizeContractError(err);
+    }
+  }
+
+  /**
+   * Evaluates whether the required observer quorum is satisfied for a case.
+   */
+  public async verifyCaseQuorum(
+    caseId: string,
+    attestations: Array<{ attestor: string; role: string }>,
+    requiredQuorumOverride?: number,
+    options?: contract.MethodOptions
+  ): Promise<QuorumVerificationResult> {
+    const caseRecord = await this.getCase(caseId, options);
+    if (!caseRecord) {
+      throw new Error(`Case ${caseId} not found on contract`);
+    }
+    const requiredQuorum = requiredQuorumOverride ?? caseRecord.observerQuorum ?? 1;
+    return verifyObserverQuorum({
+      caseId,
+      owner: caseRecord.owner,
+      counterparty: caseRecord.counterparty,
+      attestations,
+      requiredQuorum,
+    });
+  }
+}
+
+/**
+ * Pure evaluation helper for observer quorum verification.
+ *
+ * Rules:
+ * 1. Counts distinct authorized observer attestations (role === "OBSERVER").
+ * 2. A duplicate observer counts only once.
+ * 3. Owner and counterparty attestations must NOT be counted as observer quorum.
+ * 4. Quorum is satisfied if distinctObserverCount >= requiredObserverQuorum.
+ */
+export function verifyObserverQuorum(params: {
+  caseId: string;
+  owner: string;
+  counterparty?: string | null;
+  attestations: Array<{ attestor: string; role: string }>;
+  requiredQuorum?: number;
+}): QuorumVerificationResult {
+  const { caseId, owner, counterparty, attestations } = params;
+  const requiredObserverQuorum = params.requiredQuorum ?? 1;
+
+  // Filter for observer role attestations only, strictly excluding owner and counterparty
+  const observerAttestations = attestations.filter((a) => {
+    const isObserverRole = a.role.toUpperCase() === "OBSERVER";
+    const isOwner = a.attestor === owner;
+    const isCounterparty = Boolean(counterparty && a.attestor === counterparty);
+    return isObserverRole && !isOwner && !isCounterparty;
+  });
+
+  const submittedObserverCount = observerAttestations.length;
+
+  // Deduplicate observer addresses
+  const distinctSet = new Set<string>();
+  for (const a of observerAttestations) {
+    distinctSet.add(a.attestor);
+  }
+  const distinctObservers = Array.from(distinctSet);
+  const distinctObserverCount = distinctObservers.length;
+  const quorumSatisfied = distinctObserverCount >= requiredObserverQuorum;
+
+  return {
+    caseId: caseId.toLowerCase(),
+    requiredObserverQuorum,
+    submittedObserverCount,
+    distinctObserverCount,
+    quorumSatisfied,
+    distinctObservers,
+  };
 }

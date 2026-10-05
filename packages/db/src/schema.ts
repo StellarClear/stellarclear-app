@@ -12,6 +12,7 @@ export const TABLES = {
   DISPUTES: "disputes",
   RESOLUTIONS: "resolutions",
   INGESTION_CURSORS: "ingestion_cursors",
+  DISPUTE_EXPIRATIONS: "dispute_expirations",
 } as const;
 
 export interface ChainReferenceFields {

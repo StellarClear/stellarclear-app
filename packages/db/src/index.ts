@@ -13,4 +13,4 @@ export * from "./repositories/attestations.js";
 export * from "./repositories/disputes.js";
 export * from "./repositories/resolutions.js";
 export * from "./repositories/cursors.js";
-
+export * from "./repositories/dispute-expirations.js";

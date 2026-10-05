@@ -215,7 +215,7 @@ describe("Live Integration - Full Settlement Lifecycles on Soroban", () => {
     if (!onchainDispute) throw new Error("Expected onchainDispute to exist");
     assert.strictEqual(onchainDispute.status, "DISPUTED");
 
-    // 5. Submit Resolution
+    // 5. Submit Resolution (Both counterparty and owner submit matching resolution)
     const counterparty = terms.counterparty ?? "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN";
     const resolveRes = await server.inject({
       method: "POST",
@@ -228,6 +228,18 @@ describe("Live Integration - Full Settlement Lifecycles on Soroban", () => {
       },
     });
     assert.strictEqual(resolveRes.statusCode, 200);
+
+    const ownerResolveRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${terms.caseId}/resolve`,
+      body: {
+        resolver: terms.owner,
+        resolutionType: "ACCEPT_PARTIAL",
+        agreedAmount: "95000.00",
+        resolutionCommitment: "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+      },
+    });
+    assert.strictEqual(ownerResolveRes.statusCode, 200);
 
     const onchainResolve = await soroban.getOnChainCase(terms.caseId);
     if (!onchainResolve) throw new Error("Expected onchainResolve to exist");

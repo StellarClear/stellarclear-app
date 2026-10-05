@@ -77,10 +77,15 @@ export class IndexerService {
         ingestedCount++;
       } catch (err: unknown) {
         errors.push((err as Error).message);
+        // CRITICAL INVARIANT: The cursor must not advance beyond the first event
+        // that failed to be durably processed. Stop processing this batch immediately
+        // so that the cursor stays at the last durably processed event, and restarting
+        // the indexer will deterministically retry event N.
+        break;
       }
     }
 
-    // Advance cursor if new events were processed
+    // Advance cursor only up to the last durably processed event
     if (latestLedger > this.currentLedger || latestCursor !== this.currentCursor) {
       this.currentLedger = latestLedger;
       this.currentCursor = latestCursor;

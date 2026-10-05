@@ -13,6 +13,7 @@ import { SettlementProofSchema } from "./proof.js";
  */
 export const CreateCaseRequestSchema = z.object({
   expected: ExpectedSettlementSchema,
+  observerQuorum: z.number().int().positive().optional(),
 });
 export type CreateCaseRequest = z.infer<typeof CreateCaseRequestSchema>;
 

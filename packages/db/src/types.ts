@@ -31,6 +31,8 @@ export interface DbSettlementCase {
   confirmed_at_ledger?: number | null;
   created_at_ledger?: number | null;
   finalized_at_ledger?: number | null;
+  observer_quorum?: number | null;
+  dispute_expires_at_ledger?: number | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -120,6 +122,10 @@ export interface DbDispute {
   case_id: string;
   initiator: string;
   dispute_commitment: string;
+  /** Human-readable reason for the dispute, persisted durably so it survives restarts. */
+  reason?: string | null;
+  /** On-chain transaction hash anchoring the dispute opening. */
+  tx_hash?: string | null;
   opened_at_ledger?: number | null;
   created_at?: Date | string;
 }
@@ -130,7 +136,29 @@ export interface DbResolution {
   case_id: string;
   resolver: string;
   resolution_commitment: string;
+  /** Classification of the resolution (e.g. "MUTUAL_AGREEMENT"). */
+  resolution_type?: string | null;
+  /** On-chain transaction hash anchoring this resolution submission. */
+  tx_hash?: string | null;
   submitted_at_ledger?: number | null;
+  created_at?: Date | string;
+}
+
+/**
+ * Durable record of a dispute expiration event observed on-chain.
+ * Populated exclusively from the Soroban DisputeExpired event — never
+ * inferred from a local timer or wall-clock timeout.
+ */
+export interface DbDisputeExpiration {
+  id?: number;
+  network: string;
+  case_id: string;
+  /** Ledger sequence from the authoritative on-chain DisputeExpired event. */
+  expired_at_ledger: number;
+  expired_at_timestamp?: Date | string | null;
+  /** Cursor of the contract event that triggered this record. */
+  event_cursor: string;
+  tx_hash?: string | null;
   created_at?: Date | string;
 }
 
@@ -141,3 +169,4 @@ export interface DbIngestionCursor {
   last_processed_event_cursor?: string | null;
   updated_at: Date | string;
 }
+

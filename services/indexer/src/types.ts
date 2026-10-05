@@ -11,6 +11,8 @@ export type SettlementEventType =
   | "DisputeOpened"
   | "ResolutionSubmitted"
   | "DisputeResolved"
+  | "DisputeExpired"
+  | "CaseQuorumSet"
   | "CaseFinalized";
 
 export interface DecodedContractEvent {
@@ -76,4 +78,15 @@ export interface DisputeResolvedPayload {
 export interface CaseFinalizedPayload {
   caseId: string;
   finalizedAtLedger: number;
+}
+
+export interface DisputeExpiredPayload {
+  caseId: string;
+  expirationLedger: number;
+  closedAtLedger: number;
+}
+
+export interface CaseQuorumSetPayload {
+  caseId: string;
+  quorum: number;
 }

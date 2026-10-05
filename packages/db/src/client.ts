@@ -38,6 +38,7 @@ export class InMemoryDatabaseClient implements IDatabaseClient {
       "disputes",
       "resolutions",
       "ingestion_cursors",
+      "dispute_expirations",
     ];
     for (const t of tableNames) {
       this.tables.set(t, []);

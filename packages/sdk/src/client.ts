@@ -32,7 +32,8 @@ import {
   decodeCaseRecord,
   decodeAttestationRecord,
 } from "./helpers.js";
-import type { CaseRecord, AttestationRecord } from "./types.js";
+import type { CaseRecord, AttestationRecord, QuorumVerificationResult } from "./types.js";
+import { verifyObserverQuorum } from "./settlement-registry.js";
 
 /**
  * Core StellarClear SDK client providing high-level domain operations
@@ -364,6 +365,88 @@ export class StellarClearClient {
   public async getLatestLedger(): Promise<number> {
     const res = await this.rpcServer.getLatestLedger();
     return res.sequence;
+  }
+
+  // ==========================================
+  // OBSERVER QUORUM
+  // ==========================================
+
+  /**
+   * Reads the configured observer quorum threshold for a case.
+   */
+  public async getCaseQuorum(
+    caseId: string,
+    options?: contract.MethodOptions
+  ): Promise<number> {
+    const caseIdBuffer = Buffer.from(caseId, "hex");
+    const tx = await this.contractClient.get_case_quorum({ case_id: caseIdBuffer }, options);
+    return tx.result;
+  }
+
+  /**
+   * Configures the required observer quorum threshold for a case.
+   */
+  public async setCaseQuorum(
+    caseId: string,
+    quorum: number,
+    options?: contract.MethodOptions
+  ): Promise<contract.AssembledTransaction<contract.Result<void, contract.ErrorMessage>>> {
+    const caseIdBuffer = Buffer.from(caseId, "hex");
+    return this.contractClient.set_case_quorum({ case_id: caseIdBuffer, quorum }, options);
+  }
+
+  /**
+   * Reads the list of distinct observer addresses that submitted attestations for a case.
+   */
+  public async getAttestedObservers(
+    caseId: string,
+    options?: contract.MethodOptions
+  ): Promise<string[]> {
+    const caseIdBuffer = Buffer.from(caseId, "hex");
+    const tx = await this.contractClient.get_attested_observers({ case_id: caseIdBuffer }, options);
+    return tx.result ?? [];
+  }
+
+  /**
+   * Submits an observer attestation under multi-observer quorum semantics.
+   */
+  public async submitObserverAttestation(
+    caseId: string,
+    observer: string,
+    commitment: string | Buffer,
+    options?: contract.MethodOptions
+  ): Promise<contract.AssembledTransaction<contract.Result<void, contract.ErrorMessage>>> {
+    const caseIdBuffer = Buffer.from(caseId, "hex");
+    const commitmentBuffer = Buffer.isBuffer(commitment)
+      ? commitment
+      : Buffer.from(commitment, "hex");
+    return this.contractClient.submit_observer_attestation(
+      { case_id: caseIdBuffer, observer, commitment: commitmentBuffer },
+      options
+    );
+  }
+
+  /**
+   * Evaluates whether the required observer quorum is satisfied for a case.
+   */
+  public async verifyCaseQuorum(
+    caseId: string,
+    attestations: Array<{ attestor: string; role: string }>,
+    requiredQuorumOverride?: number,
+    options?: contract.MethodOptions
+  ): Promise<QuorumVerificationResult> {
+    const caseRecord = await this.getCase(caseId, options);
+    if (!caseRecord) {
+      throw new Error(`Case ${caseId} not found on contract`);
+    }
+    const requiredQuorum = requiredQuorumOverride ?? caseRecord.observerQuorum ?? 1;
+    return verifyObserverQuorum({
+      caseId,
+      owner: caseRecord.owner,
+      counterparty: caseRecord.counterparty,
+      attestations,
+      requiredQuorum,
+    });
   }
 }
 

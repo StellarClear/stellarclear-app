@@ -28,6 +28,22 @@ export const SubmitAttestationResponseSchema = z.object({
 });
 export type SubmitAttestationResponse = z.infer<typeof SubmitAttestationResponseSchema>;
 
+export interface AttestationsListResult {
+  caseId: string;
+  requiredObserverQuorum: number;
+  submittedObserverCount: number;
+  distinctObserverCount: number;
+  quorumSatisfied: boolean;
+  distinctObservers: string[];
+  attestations: Array<{
+    caseId: string;
+    role: AttestationRole;
+    attestor: string;
+    commitment: string;
+    attestedAtLedger: number;
+  }>;
+}
+
 export class AttestationService {
   constructor(
     private readonly caseRepo: CaseRepository,
@@ -104,19 +120,56 @@ export class AttestationService {
     };
   }
 
-  public async getAttestations(caseId: string) {
+  public async getAttestations(caseId: string): Promise<AttestationsListResult> {
     const existingCase = await this.caseRepo.findById(caseId, this.network);
     if (!existingCase) {
       throw new Error(`Case ${caseId} not found`);
     }
 
     const records = await this.attestationRepo.listByCaseId(caseId, this.network);
-    return records.map((r) => ({
+    const attestations = records.map((r) => ({
       caseId: r.case_id,
       role: r.role as AttestationRole,
       attestor: r.attestor,
       commitment: r.commitment,
       attestedAtLedger: Number(r.attested_at_ledger),
     }));
+
+    const requiredObserverQuorum = Number(existingCase.observer_quorum ?? 1);
+    const observerAttestations = attestations.filter(
+      (a) =>
+        a.role === "OBSERVER" &&
+        a.attestor !== existingCase.owner &&
+        (!existingCase.counterparty || a.attestor !== existingCase.counterparty)
+    );
+    const distinctSet = new Set<string>();
+    for (const a of observerAttestations) {
+      distinctSet.add(a.attestor);
+    }
+    const distinctObservers = Array.from(distinctSet);
+    const distinctObserverCount = distinctObservers.length;
+    const quorumSatisfied = distinctObserverCount >= requiredObserverQuorum;
+
+    return {
+      caseId,
+      requiredObserverQuorum,
+      submittedObserverCount: observerAttestations.length,
+      distinctObserverCount,
+      quorumSatisfied,
+      distinctObservers,
+      attestations,
+    };
+  }
+
+  public async getQuorumStatus(caseId: string) {
+    const result = await this.getAttestations(caseId);
+    return {
+      caseId: result.caseId,
+      requiredObserverQuorum: result.requiredObserverQuorum,
+      submittedObserverCount: result.submittedObserverCount,
+      distinctObserverCount: result.distinctObserverCount,
+      quorumSatisfied: result.quorumSatisfied,
+      distinctObservers: result.distinctObservers,
+    };
   }
 }

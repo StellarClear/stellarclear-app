@@ -202,7 +202,7 @@ describe("Integration - Release-Candidate Full Stack Regression", () => {
     const disputeBody = disputeRes.body as { status: string };
     assert.strictEqual(disputeBody.status, "DISPUTED");
 
-    // 5. Submit Resolution
+    // 5. Submit Resolution (Both counterparty and owner submit matching resolution)
     const resolveRes = await server.inject({
       method: "POST",
       url: `/v1/cases/${caseId}/resolve`,
@@ -214,7 +214,20 @@ describe("Integration - Release-Candidate Full Stack Regression", () => {
       },
     });
     assert.strictEqual(resolveRes.statusCode, 200);
-    const resolveBody = resolveRes.body as { status: string };
+    const interimResolveBody = resolveRes.body as { status: string; resolutionCommitment: string };
+    assert.strictEqual(interimResolveBody.status, "DISPUTED");
+
+    const ownerRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/resolve`,
+      body: {
+        resolver: terms.owner,
+        resolutionType: "MUTUAL_AGREEMENT",
+        resolutionCommitment: interimResolveBody.resolutionCommitment,
+      },
+    });
+    assert.strictEqual(ownerRes.statusCode, 200);
+    const resolveBody = ownerRes.body as { status: string };
     assert.strictEqual(resolveBody.status, "RESOLVED");
 
     // 6. Finalize Dispute

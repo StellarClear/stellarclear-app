@@ -140,6 +140,42 @@ export function decodeContractEvent(raw: RawStellarEvent): DecodedContractEvent 
       break;
     }
 
+    case "DisputeExpired": {
+      eventType = "DisputeExpired";
+      caseId = extractCaseId(raw.topic[1]);
+      let expLedger = 0;
+      let closedLedger = 0;
+      if (Array.isArray(raw.value)) {
+        expLedger = Number(raw.value[0] ?? 0);
+        closedLedger = Number(raw.value[1] ?? 0);
+      } else if (raw.value && typeof raw.value === "object") {
+        const data = raw.value as Record<string, unknown>;
+        expLedger = Number(data["expiration_ledger"] ?? data["expirationLedger"] ?? 0);
+        closedLedger = Number(data["closed_at_ledger"] ?? data["closedAtLedger"] ?? 0);
+      }
+      payload["caseId"] = caseId;
+      payload["expirationLedger"] = expLedger;
+      payload["closedAtLedger"] = closedLedger || raw.ledger;
+      break;
+    }
+
+    case "CaseQuorumSet": {
+      eventType = "CaseQuorumSet";
+      caseId = extractCaseId(raw.topic[1]);
+      let quorum = 1;
+      if (typeof raw.value === "number") {
+        quorum = raw.value;
+      } else if (Array.isArray(raw.value)) {
+        quorum = Number(raw.value[0] ?? 1);
+      } else if (raw.value && typeof raw.value === "object") {
+        const data = raw.value as Record<string, unknown>;
+        quorum = Number(data["quorum"] ?? 1);
+      }
+      payload["caseId"] = caseId;
+      payload["quorum"] = quorum;
+      break;
+    }
+
     case "CaseFinalized": {
       eventType = "CaseFinalized";
       caseId = extractCaseId(raw.topic[1]);

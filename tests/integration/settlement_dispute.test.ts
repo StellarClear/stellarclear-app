@@ -75,8 +75,8 @@ describe("Integration - Dispute Resolution & Verification", () => {
     assert.strictEqual(disputeBody.status, "DISPUTED");
     assert.ok(disputeBody.disputeCommitment);
 
-    // 4. Resolve Dispute
-    const resolveRes = await server.inject({
+    // 4. Resolve Dispute: Counterparty submits, then Owner submits matching resolution
+    const cpResolveRes = await server.inject({
       method: "POST",
       url: `/v1/cases/${terms.caseId}/resolve`,
       body: {
@@ -88,8 +88,21 @@ describe("Integration - Dispute Resolution & Verification", () => {
         },
       },
     });
-    assert.strictEqual(resolveRes.statusCode, 200);
-    const resolveBody = resolveRes.body as { status: string; resolutionCommitment: string };
+    assert.strictEqual(cpResolveRes.statusCode, 200);
+    const cpResolveBody = cpResolveRes.body as { status: string; resolutionCommitment: string };
+    assert.strictEqual(cpResolveBody.status, "DISPUTED");
+
+    const ownerResolveRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${terms.caseId}/resolve`,
+      body: {
+        resolver: terms.owner,
+        resolutionType: "SUPPLEMENTAL_PAYMENT_AUTHORIZED",
+        resolutionCommitment: cpResolveBody.resolutionCommitment,
+      },
+    });
+    assert.strictEqual(ownerResolveRes.statusCode, 200);
+    const resolveBody = ownerResolveRes.body as { status: string; resolutionCommitment: string };
     assert.strictEqual(resolveBody.status, "RESOLVED");
     assert.ok(resolveBody.resolutionCommitment);
 

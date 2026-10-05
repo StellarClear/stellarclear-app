@@ -488,6 +488,95 @@ describe("Indexer Service - Settlement State Synchronization", () => {
     const postReplayCase = await caseRepo.findById(breakCaseId, TEST_NETWORK);
     assert.strictEqual(postReplayCase!.status, "FINALIZED");
   });
+
+  it("DisputeExpired returns DISPUTED case to BREAK, records expiration idempotently and never regresses FINALIZED", async () => {
+    const { caseRepo, synchronizer, db } = setup();
+    const expCaseId = "2020202020202020202020202020202020202020202020202020202020202020";
+    const owner = "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFTGOBKGOTQTV4HXY5SLQ";
+    const now = new Date();
+    await caseRepo.insert({
+      id: expCaseId,
+      network: TEST_NETWORK,
+      owner,
+      trade_reference: "TR-EXP-001",
+      asset: "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      amount: "1.00",
+      expected_destination: owner,
+      terms_commitment: "e".repeat(64),
+      expires_at_ledger: 1000000,
+      status: "DISPUTED",
+      created_at: now,
+      updated_at: now,
+    });
+    await caseRepo.updateDisputeExpiration(expCaseId, TEST_NETWORK, 700100);
+
+    const expiredEvent: DecodedContractEvent = {
+      type: "DisputeExpired",
+      contractId: TEST_CONTRACT_ID,
+      ledger: 700200,
+      txHash: "0x_expire_tx",
+      cursor: "exp_cur_1",
+      topicXdr: "AAAAAA==",
+      dataXdr: "AAAAAA==",
+      caseId: expCaseId,
+      payload: { caseId: expCaseId, expirationLedger: 700100, closedAtLedger: 700200 },
+    };
+
+    assert.strictEqual(await synchronizer.syncEvent(expiredEvent), true);
+    const afterFirst = await caseRepo.findById(expCaseId, TEST_NETWORK);
+    assert.strictEqual(afterFirst!.status, "BREAK");
+    assert.strictEqual(afterFirst!.dispute_expires_at_ledger ?? null, null);
+
+    // Duplicate delivery is idempotent
+    assert.strictEqual(await synchronizer.syncEvent(expiredEvent), true);
+    const rows = db.getTable("dispute_expirations").filter((r) => r["case_id"] === expCaseId);
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(Number(rows[0]["expired_at_ledger"]), 700200);
+    assert.strictEqual(rows[0]["event_cursor"], "exp_cur_1");
+
+    // A replayed DisputeExpired must not regress a FINALIZED case
+    await caseRepo.updateStatus(expCaseId, TEST_NETWORK, "FINALIZED", 700300);
+    await synchronizer.syncEvent(expiredEvent);
+    const finalCase = await caseRepo.findById(expCaseId, TEST_NETWORK);
+    assert.strictEqual(finalCase!.status, "FINALIZED");
+  });
+
+  it("CaseQuorumSet updates the observer quorum of the case", async () => {
+    const { caseRepo, synchronizer } = setup();
+    const qCaseId = "3030303030303030303030303030303030303030303030303030303030303030";
+    const owner = "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFTGOBKGOTQTV4HXY5SLQ";
+    const now = new Date();
+    await caseRepo.insert({
+      id: qCaseId,
+      network: TEST_NETWORK,
+      owner,
+      trade_reference: "TR-Q-001",
+      asset: "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      amount: "1.00",
+      expected_destination: owner,
+      terms_commitment: "f".repeat(64),
+      expires_at_ledger: 1000000,
+      status: "OPEN",
+      observer_quorum: 1,
+      created_at: now,
+      updated_at: now,
+    });
+
+    await synchronizer.syncEvent({
+      type: "CaseQuorumSet",
+      contractId: TEST_CONTRACT_ID,
+      ledger: 710000,
+      txHash: "0x_quorum_tx",
+      cursor: "q_cur_1",
+      topicXdr: "AAAAAA==",
+      dataXdr: "AAAAAA==",
+      caseId: qCaseId,
+      payload: { caseId: qCaseId, quorum: 3 },
+    });
+
+    const updated = await caseRepo.findById(qCaseId, TEST_NETWORK);
+    assert.strictEqual(Number(updated!.observer_quorum), 3);
+  });
 });
 
 

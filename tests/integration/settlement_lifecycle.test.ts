@@ -206,7 +206,7 @@ describe("Integration - End-to-End Settlement Lifecycles", () => {
     const disputeBody = disputeRes.body as { status: string };
     assert.strictEqual(disputeBody.status, "DISPUTED");
 
-    // 5. Submit Resolution
+    // 5. Submit Resolution (Counterparty submits, then Owner submits matching resolution)
     const resolveRes = await server.inject({
       method: "POST",
       url: `/v1/cases/${terms.caseId}/resolve`,
@@ -220,7 +220,20 @@ describe("Integration - End-to-End Settlement Lifecycles", () => {
       },
     });
     assert.strictEqual(resolveRes.statusCode, 200);
-    const resolveBody = resolveRes.body as { status: string };
+    const interimResolveBody = resolveRes.body as { status: string; resolutionCommitment: string };
+    assert.strictEqual(interimResolveBody.status, "DISPUTED");
+
+    const ownerResolveRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${terms.caseId}/resolve`,
+      body: {
+        resolver: terms.owner,
+        resolutionType: "MUTUAL_SETTLEMENT_RECONCILIATION",
+        resolutionCommitment: interimResolveBody.resolutionCommitment,
+      },
+    });
+    assert.strictEqual(ownerResolveRes.statusCode, 200);
+    const resolveBody = ownerResolveRes.body as { status: string };
     assert.strictEqual(resolveBody.status, "RESOLVED");
 
     // 6. Finalize Case

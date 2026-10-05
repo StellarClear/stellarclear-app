@@ -30,6 +30,8 @@ export interface CaseRecord {
   };
   createdAtLedger: number;
   finalizedAtLedger?: number;
+  observerQuorum?: number;
+  disputeExpiresAtLedger?: number;
 }
 
 /**
@@ -50,3 +52,14 @@ export interface TransactionResult<T = void> {
   status: "SUCCESS" | "FAILED";
 }
 
+/**
+ * Result of evaluating observer quorum satisfaction against distinct authorized observers.
+ */
+export interface QuorumVerificationResult {
+  caseId: string;
+  requiredObserverQuorum: number;
+  submittedObserverCount: number;
+  distinctObserverCount: number;
+  quorumSatisfied: boolean;
+  distinctObservers: string[];
+}

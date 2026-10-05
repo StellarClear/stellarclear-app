@@ -147,7 +147,7 @@ describe("API Service - Settlement Dispute Workflow", () => {
     assert.strictEqual(getDisputeBody.status, "DISPUTED");
     assert.strictEqual(getDisputeBody.dispute?.initiator, sampleTerms.owner);
 
-    // 6. Submit Resolution (POST /v1/cases/:caseId/resolve)
+    // 6. First Resolution Submission (Owner only) — MUST remain DISPUTED
     const resolveRes = await server.inject({
       method: "POST",
       url: `/v1/cases/${sampleTerms.caseId}/resolve`,
@@ -168,10 +168,41 @@ describe("API Service - Settlement Dispute Workflow", () => {
       status: string;
       resolutionCommitment: string;
       txHash: string;
+      mutualResolutionAchieved?: boolean;
     };
-    assert.strictEqual(resolveBody.status, "RESOLVED");
-    assert.strictEqual(resolveBody.txHash, `0x_resolve_tx_${sampleTerms.caseId.slice(0, 8)}`);
+    // First submission must NOT mark case RESOLVED — must remain DISPUTED
+    assert.strictEqual(resolveBody.status, "DISPUTED");
+    assert.strictEqual(resolveBody.mutualResolutionAchieved, false);
     assert.strictEqual(anchor.resolutionCalls.length, 1);
+
+    // Verify DB case status remains DISPUTED after single submission
+    const interimCaseRes = await server.inject({
+      method: "GET",
+      url: `/v1/cases/${sampleTerms.caseId}`,
+    });
+    assert.strictEqual((interimCaseRes.body as { status: string }).status, "DISPUTED");
+
+    // 6b. Second Resolution Submission (Counterparty with matching commitment) — becomes RESOLVED
+    const cpResolveRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${sampleTerms.caseId}/resolve`,
+      body: {
+        resolver: sampleTerms.counterparty,
+        resolutionType: "SUPPLEMENTARY_SETTLEMENT_AGREED",
+        resolutionCommitment: resolveBody.resolutionCommitment,
+      },
+    });
+
+    assert.strictEqual(cpResolveRes.statusCode, 200);
+    const cpResolveBody = cpResolveRes.body as {
+      caseId: string;
+      status: string;
+      resolutionCommitment: string;
+      mutualResolutionAchieved?: boolean;
+    };
+    assert.strictEqual(cpResolveBody.status, "RESOLVED");
+    assert.strictEqual(cpResolveBody.mutualResolutionAchieved, true);
+    assert.strictEqual(anchor.resolutionCalls.length, 2);
 
     // 7. Verify case status is now RESOLVED
     const caseRes = await server.inject({
@@ -181,6 +212,169 @@ describe("API Service - Settlement Dispute Workflow", () => {
     assert.strictEqual(caseRes.statusCode, 200);
     const caseBody = caseRes.body as { status: string };
     assert.strictEqual(caseBody.status, "RESOLVED");
+  });
+
+  it("rejects dispute opening when case status is OPEN (400 INVALID_STATE)", async () => {
+    const { server } = setup();
+
+    await server.inject({
+      method: "POST",
+      url: "/v1/cases",
+      body: { expected: sampleTerms },
+    });
+
+    const res = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${sampleTerms.caseId}/dispute`,
+      body: {
+        initiator: sampleTerms.owner,
+        reason: "Premature dispute on OPEN case",
+      },
+    });
+
+    assert.strictEqual(res.statusCode, 400);
+    const body = res.body as { error: { code: string; message: string } };
+    assert.strictEqual(body.error.code, "INVALID_STATE");
+  });
+
+  it("rejects dispute opening when case status is OBSERVED (400 INVALID_STATE)", async () => {
+    const { server } = setup();
+
+    await server.inject({
+      method: "POST",
+      url: "/v1/cases",
+      body: { expected: sampleTerms },
+    });
+
+    await server.inject({
+      method: "POST",
+      url: `/v1/cases/${sampleTerms.caseId}/observe`,
+      body: { observation: brokenObserved },
+    });
+
+    const res = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${sampleTerms.caseId}/dispute`,
+      body: {
+        initiator: sampleTerms.owner,
+        reason: "Premature dispute on OBSERVED case before reconciliation",
+      },
+    });
+
+    assert.strictEqual(res.statusCode, 400);
+    const obsBody = res.body as { error: { code: string; message: string } };
+    assert.strictEqual(obsBody.error.code, "INVALID_STATE");
+  });
+
+  it("keeps case in DISPUTED state when second resolution has non-matching commitment", async () => {
+    const { server } = setup();
+
+    await server.inject({ method: "POST", url: "/v1/cases", body: { expected: sampleTerms } });
+    await server.inject({ method: "POST", url: `/v1/cases/${sampleTerms.caseId}/observe`, body: { observation: brokenObserved } });
+    await server.inject({ method: "POST", url: `/v1/cases/${sampleTerms.caseId}/reconcile` });
+    await server.inject({
+      method: "POST",
+      url: `/v1/cases/${sampleTerms.caseId}/dispute`,
+      body: { initiator: sampleTerms.owner, reason: "Break detected" },
+    });
+
+    // Owner resolves with commitment A
+    await server.inject({
+      method: "POST",
+      url: `/v1/cases/${sampleTerms.caseId}/resolve`,
+      body: {
+        resolver: sampleTerms.owner,
+        resolutionType: "PROPOSAL_A",
+        resolutionCommitment: "1111111111111111111111111111111111111111111111111111111111111111",
+      },
+    });
+
+    // Counterparty resolves with DIFFERENT commitment B
+    const cpRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${sampleTerms.caseId}/resolve`,
+      body: {
+        resolver: sampleTerms.counterparty,
+        resolutionType: "PROPOSAL_B",
+        resolutionCommitment: "2222222222222222222222222222222222222222222222222222222222222222",
+      },
+    });
+
+    assert.strictEqual(cpRes.statusCode, 200);
+    const cpBody = cpRes.body as { status: string; mutualResolutionAchieved: boolean };
+    assert.strictEqual(cpBody.status, "DISPUTED");
+    assert.strictEqual(cpBody.mutualResolutionAchieved, false);
+
+    // Case in DB must still be DISPUTED
+    const caseRes = await server.inject({ method: "GET", url: `/v1/cases/${sampleTerms.caseId}` });
+    assert.strictEqual((caseRes.body as { status: string }).status, "DISPUTED");
+  });
+
+  it("preserves dispute and resolution evidence across server restart without in-memory maps", async () => {
+    const db = new InMemoryDatabaseClient();
+    const anchor = new MockAnchorService();
+
+    // Instance 1
+    const server1 = createApiServer(
+      {
+        port: 3000,
+        host: "0.0.0.0",
+        network: TEST_NETWORK,
+        databaseUrl: "postgres://localhost:5432/test",
+        contractId: TEST_CONTRACT_ID,
+      },
+      db,
+      anchor
+    );
+
+    await server1.inject({ method: "POST", url: "/v1/cases", body: { expected: sampleTerms } });
+    await server1.inject({ method: "POST", url: `/v1/cases/${sampleTerms.caseId}/observe`, body: { observation: brokenObserved } });
+    await server1.inject({ method: "POST", url: `/v1/cases/${sampleTerms.caseId}/reconcile` });
+    await server1.inject({
+      method: "POST",
+      url: `/v1/cases/${sampleTerms.caseId}/dispute`,
+      body: { initiator: sampleTerms.owner, reason: "Durable dispute evidence test" },
+    });
+    await server1.inject({
+      method: "POST",
+      url: `/v1/cases/${sampleTerms.caseId}/resolve`,
+      body: {
+        resolver: sampleTerms.owner,
+        resolutionType: "PARTIAL_SETTLEMENT",
+        resolutionCommitment: "4444444444444444444444444444444444444444444444444444444444444444",
+      },
+    });
+
+    // Simulate process restart by creating new server instance with the same dbClient
+    const server2 = createApiServer(
+      {
+        port: 3001,
+        host: "0.0.0.0",
+        network: TEST_NETWORK,
+        databaseUrl: "postgres://localhost:5432/test",
+        contractId: TEST_CONTRACT_ID,
+      },
+      db,
+      anchor
+    );
+
+    const disputeRes = await server2.inject({
+      method: "GET",
+      url: `/v1/cases/${sampleTerms.caseId}/dispute`,
+    });
+
+    assert.strictEqual(disputeRes.statusCode, 200);
+    const disputeBody = disputeRes.body as {
+      caseId: string;
+      status: string;
+      dispute?: { initiator: string; reason: string };
+      resolutions: Array<{ resolver: string; resolutionCommitment: string }>;
+    };
+    assert.strictEqual(disputeBody.status, "DISPUTED");
+    assert.strictEqual(disputeBody.dispute?.initiator, sampleTerms.owner);
+    assert.strictEqual(disputeBody.dispute?.reason, "Durable dispute evidence test");
+    assert.strictEqual(disputeBody.resolutions.length, 1);
+    assert.strictEqual(disputeBody.resolutions[0].resolver, sampleTerms.owner);
   });
 
   it("rejects resolution when case is not in DISPUTED state (400)", async () => {

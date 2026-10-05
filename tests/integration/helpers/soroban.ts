@@ -256,10 +256,18 @@ export class LiveSorobanEnvironment implements OnChainAnchorService {
     const txHash = this.generateTxHash("resolve", caseIdNorm);
     const key = `${caseIdNorm}:${params.resolver.toLowerCase()}`;
     this.resolutions.set(key, params.resolutionCommitment);
-    this.cases.set(caseIdNorm, {
-      ...existing,
-      status: "RESOLVED",
-    });
+
+    const ownerRes = this.resolutions.get(`${caseIdNorm}:${existing.owner.toLowerCase()}`);
+    const cpRes = existing.counterparty
+      ? this.resolutions.get(`${caseIdNorm}:${existing.counterparty.toLowerCase()}`)
+      : null;
+
+    if (ownerRes && cpRes && ownerRes.toLowerCase() === cpRes.toLowerCase()) {
+      this.cases.set(caseIdNorm, {
+        ...existing,
+        status: "RESOLVED",
+      });
+    }
 
     this.transactions.push({
       txHash,

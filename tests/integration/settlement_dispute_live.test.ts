@@ -69,7 +69,7 @@ describe("Live Integration - Settlement Dispute and Resolution Workflow", () => 
     if (!onchainDispute) throw new Error("Expected onchainDispute to exist");
     assert.strictEqual(onchainDispute.status, "DISPUTED");
 
-    // 5. Submit Resolution from counterparty
+    // 5. Submit Resolution from counterparty and owner
     const resolver = terms.counterparty ?? "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN";
     const resolutionCommitment = "eeee5555ffff6666aaaa7777bbbb8888eeee5555ffff6666aaaa7777bbbb8888";
     const resolveRes = await server.inject({
@@ -83,6 +83,18 @@ describe("Live Integration - Settlement Dispute and Resolution Workflow", () => 
       },
     });
     assert.strictEqual(resolveRes.statusCode, 200);
+
+    const ownerResolveRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${terms.caseId}/resolve`,
+      body: {
+        resolver: terms.owner,
+        resolutionType: "AGREE_MODIFIED_AMOUNT",
+        agreedAmount: "400000.00",
+        resolutionCommitment,
+      },
+    });
+    assert.strictEqual(ownerResolveRes.statusCode, 200);
 
     const onchainResolve = await soroban.getOnChainCase(terms.caseId);
     if (!onchainResolve) throw new Error("Expected onchainResolve to exist");

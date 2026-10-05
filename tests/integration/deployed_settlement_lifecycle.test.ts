@@ -264,7 +264,7 @@ describe("Integration - Deployed SettlementRegistry End-to-End Lifecycle", () =>
     const disputeBody = disputeRes.body as { status: string };
     assert.strictEqual(disputeBody.status, "DISPUTED");
 
-    // Submit Resolution
+    // Submit Resolution (Both counterparty and owner submit matching resolution)
     const counterparty = terms.counterparty ?? "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN";
     const resolveRes = await server.inject({
       method: "POST",
@@ -277,7 +277,19 @@ describe("Integration - Deployed SettlementRegistry End-to-End Lifecycle", () =>
       },
     });
     assert.strictEqual(resolveRes.statusCode, 200);
-    const resolveBody = resolveRes.body as { status: string };
+
+    const ownerResolveRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/resolve`,
+      body: {
+        resolver: terms.owner,
+        resolutionType: "ACCEPT_PARTIAL",
+        agreedAmount: "200000.00",
+        resolutionCommitment: "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
+      },
+    });
+    assert.strictEqual(ownerResolveRes.statusCode, 200);
+    const resolveBody = ownerResolveRes.body as { status: string };
     assert.strictEqual(resolveBody.status, "RESOLVED");
 
     // Finalize

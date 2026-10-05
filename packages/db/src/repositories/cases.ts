@@ -24,8 +24,9 @@ export class CaseRepository {
         expected_destination, reference, terms_commitment, expires_at_ledger,
         status, create_tx_hash, observation_tx_hash, reconciliation_tx_hash,
         attestation_tx_hash, dispute_tx_hash, resolution_tx_hash, finalization_tx_hash,
-        submission_status, confirmed_at_ledger, created_at_ledger, finalized_at_ledger, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, NOW(), NOW())
+        submission_status, confirmed_at_ledger, created_at_ledger, finalized_at_ledger,
+        observer_quorum, dispute_expires_at_ledger, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, NOW(), NOW())
       RETURNING *;
     `;
     const params = [
@@ -53,6 +54,8 @@ export class CaseRepository {
       caseData.confirmed_at_ledger ?? null,
       caseData.created_at_ledger ?? null,
       caseData.finalized_at_ledger ?? null,
+      caseData.observer_quorum ?? 1,
+      caseData.dispute_expires_at_ledger ?? null,
     ];
     const res = await this.client.query<DbSettlementCase>(sql, params);
     return res.rows[0];
@@ -137,6 +140,50 @@ export class CaseRepository {
       WHERE id = $3 AND network = $4;
     `;
     await this.client.query(sql, [status, finalizedLedger ?? null, id.toLowerCase(), network]);
+  }
+
+  public async updateQuorum(id: string, network: string, quorum: number): Promise<void> {
+    if ("getTable" in this.client) {
+      const mem = this.client as unknown as InMemoryDatabaseClient;
+      const table = mem.getTable("settlement_cases");
+      const row = table.find((r) => r["id"] === id.toLowerCase() && r["network"] === network);
+      if (row) {
+        row["observer_quorum"] = quorum;
+        row["updated_at"] = new Date();
+      }
+      return;
+    }
+
+    const sql = `
+      UPDATE settlement_cases
+      SET observer_quorum = $1, updated_at = NOW()
+      WHERE id = $2 AND network = $3;
+    `;
+    await this.client.query(sql, [quorum, id.toLowerCase(), network]);
+  }
+
+  public async updateDisputeExpiration(
+    id: string,
+    network: string,
+    expirationLedger: number | null
+  ): Promise<void> {
+    if ("getTable" in this.client) {
+      const mem = this.client as unknown as InMemoryDatabaseClient;
+      const table = mem.getTable("settlement_cases");
+      const row = table.find((r) => r["id"] === id.toLowerCase() && r["network"] === network);
+      if (row) {
+        row["dispute_expires_at_ledger"] = expirationLedger;
+        row["updated_at"] = new Date();
+      }
+      return;
+    }
+
+    const sql = `
+      UPDATE settlement_cases
+      SET dispute_expires_at_ledger = $1, updated_at = NOW()
+      WHERE id = $2 AND network = $3;
+    `;
+    await this.client.query(sql, [expirationLedger, id.toLowerCase(), network]);
   }
 
   public async list(network: string, limit = 50, offset = 0): Promise<DbSettlementCase[]> {

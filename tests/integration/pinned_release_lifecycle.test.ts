@@ -350,7 +350,7 @@ describe("Integration - Pinned SettlementRegistry Release End-to-End Lifecycle",
     const disputeBody = disputeRes.body as { status: string };
     assert.strictEqual(disputeBody.status, "DISPUTED");
 
-    // 5. Submit Resolution
+    // 5. Submit Resolution (Both counterparty and owner submit matching resolution)
     const resRes = await server.inject({
       method: "POST",
       url: `/v1/cases/${caseId}/resolve`,
@@ -362,7 +362,20 @@ describe("Integration - Pinned SettlementRegistry Release End-to-End Lifecycle",
       },
     });
     assert.strictEqual(resRes.statusCode, 200);
-    const resBody = resRes.body as { status: string };
+    const interimResBody = resRes.body as { status: string; resolutionCommitment: string };
+    assert.strictEqual(interimResBody.status, "DISPUTED");
+
+    const ownerRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/resolve`,
+      body: {
+        resolver: terms.owner,
+        resolutionType: "MUTUAL_AGREEMENT",
+        resolutionCommitment: interimResBody.resolutionCommitment,
+      },
+    });
+    assert.strictEqual(ownerRes.statusCode, 200);
+    const resBody = ownerRes.body as { status: string };
     assert.strictEqual(resBody.status, "RESOLVED");
 
     // 6. Generate proof and finalize

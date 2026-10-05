@@ -133,6 +133,8 @@ export function decodeCaseRecord(caseId: string, raw: ContractSettlementCase): C
     decision,
     createdAtLedger: raw.created_at_ledger,
     finalizedAtLedger: raw.finalized_at_ledger ?? undefined,
+    observerQuorum: raw.observer_quorum ?? 1,
+    disputeExpiresAtLedger: raw.dispute_expires_at_ledger ?? undefined,
   };
 }
 

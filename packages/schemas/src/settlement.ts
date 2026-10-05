@@ -21,6 +21,7 @@ export const ExpectedSettlementSchema = z.object({
   deadline: LedgerSequenceSchema,
   owner: StellarAddressSchema,
   counterparty: StellarAddressSchema.optional(),
+  observerQuorum: z.number().int().positive().optional(),
 });
 
 export type ExpectedSettlement = z.infer<typeof ExpectedSettlementSchema>;

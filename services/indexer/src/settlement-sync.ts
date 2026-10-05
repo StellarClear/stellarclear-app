@@ -8,6 +8,7 @@ import {
   DisputeRepository,
   ResolutionRepository,
   ContractEventRepository,
+  DisputeExpirationRepository,
 } from "@stellarclear/db";
 import type { DecodedContractEvent } from "./types.js";
 import type { AttestationRole, BreakCode, CaseStatus } from "@stellarclear/schemas";
@@ -27,6 +28,7 @@ export class SettlementStateSynchronizer {
   private attestationRepo: AttestationRepository;
   private disputeRepo: DisputeRepository;
   private resolutionRepo: ResolutionRepository;
+  private disputeExpirationRepo: DisputeExpirationRepository;
   private eventRepo: ContractEventRepository;
 
   constructor(
@@ -40,6 +42,7 @@ export class SettlementStateSynchronizer {
     this.attestationRepo = new AttestationRepository(client);
     this.disputeRepo = new DisputeRepository(client);
     this.resolutionRepo = new ResolutionRepository(client);
+    this.disputeExpirationRepo = new DisputeExpirationRepository(client);
     this.eventRepo = new ContractEventRepository(client);
   }
 
@@ -398,6 +401,49 @@ export class SettlementStateSynchronizer {
           finalization_tx_hash: event.txHash,
           finalized_at_ledger: finalizedLedger,
         });
+        return true;
+      }
+
+      case "DisputeExpired": {
+        const closedAtLedger = Number(event.payload["closedAtLedger"] || event.ledger);
+        const caseRecord = await this.ensureCase(caseId, event, "BREAK", {
+          dispute_tx_hash: event.txHash,
+        });
+        await this.disputeExpirationRepo.insert({
+          network: this.network,
+          case_id: caseId,
+          expired_at_ledger: closedAtLedger,
+          event_cursor: event.cursor,
+          tx_hash: event.txHash,
+        });
+        // Only a DISPUTED case may return to BREAK; never regress RESOLVED/FINALIZED on replay.
+        if (caseRecord.status === "DISPUTED") {
+          await this.caseRepo.updateStatus(caseId, this.network, "BREAK");
+        }
+        await this.caseRepo.updateDisputeExpiration(caseId, this.network, null);
+        await this.caseRepo.updateChainReferences(caseId, this.network, {
+          confirmed_at_ledger: event.ledger,
+        });
+        console.log(
+          JSON.stringify({
+            level: "info",
+            component: "indexer",
+            event: "DisputeExpired",
+            network: this.network,
+            caseId,
+            expirationLedger: Number(event.payload["expirationLedger"] || 0),
+            closedAtLedger,
+            txHash: event.txHash,
+            cursor: event.cursor,
+          })
+        );
+        return true;
+      }
+
+      case "CaseQuorumSet": {
+        const quorum = Number(event.payload["quorum"] || 1);
+        await this.ensureCase(caseId, event, "OPEN", { observer_quorum: quorum });
+        await this.caseRepo.updateQuorum(caseId, this.network, quorum);
         return true;
       }
 

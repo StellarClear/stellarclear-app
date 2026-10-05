@@ -16,6 +16,7 @@ import {
   contractToAttestationRole,
   decodeCaseRecord,
   decodeAttestationRecord,
+  verifyObserverQuorum,
 } from "@stellarclear/sdk";
 import type { ExpectedSettlement, ObservedSettlement } from "@stellarclear/schemas";
 
@@ -182,6 +183,8 @@ describe("SDK Package - Case Operations & Conversions", () => {
       decision: { tag: "Matched" as const, values: undefined },
       created_at_ledger: 490000,
       finalized_at_ledger: undefined,
+      observer_quorum: 1,
+      dispute_expires_at_ledger: undefined,
     };
 
     const decoded = decodeCaseRecord(VALID_CASE_ID, rawCase);
@@ -256,5 +259,111 @@ describe("SDK Package - SettlementRegistryClient Operations", () => {
     assert.strictEqual(typeof registryClient.isObserver, "function");
     assert.strictEqual(typeof registryClient.getResolution, "function");
     assert.strictEqual(typeof registryClient.getLatestLedger, "function");
+    assert.strictEqual(typeof registryClient.getCaseQuorum, "function");
+    assert.strictEqual(typeof registryClient.setCaseQuorum, "function");
+    assert.strictEqual(typeof registryClient.getAttestedObservers, "function");
+    assert.strictEqual(typeof registryClient.submitObserverAttestation, "function");
+    assert.strictEqual(typeof registryClient.verifyCaseQuorum, "function");
+  });
+});
+
+describe("SDK Package - Observer Quorum Verification (TASK A)", () => {
+  const OBSERVER_1 = "GA1111111111111111111111111111111111111111111111111111111111";
+  const OBSERVER_2 = "GA2222222222222222222222222222222222222222222222222222222222";
+  const OBSERVER_3 = "GA3333333333333333333333333333333333333333333333333333333333";
+
+  it("verifies existing quorum-1 cases pass with a single distinct observer attestation", () => {
+    const res = verifyObserverQuorum({
+      caseId: VALID_CASE_ID,
+      owner: VALID_ACCOUNT_ID,
+      counterparty: VALID_CP_ID,
+      requiredQuorum: 1,
+      attestations: [
+        { attestor: VALID_ACCOUNT_ID, role: "OWNER" },
+        { attestor: OBSERVER_1, role: "OBSERVER" },
+      ],
+    });
+
+    assert.strictEqual(res.requiredObserverQuorum, 1);
+    assert.strictEqual(res.submittedObserverCount, 1);
+    assert.strictEqual(res.distinctObserverCount, 1);
+    assert.strictEqual(res.quorumSatisfied, true);
+    assert.deepStrictEqual(res.distinctObservers, [OBSERVER_1]);
+  });
+
+  it("fails verification when a quorum-3 case has only two distinct observers", () => {
+    const res = verifyObserverQuorum({
+      caseId: VALID_CASE_ID,
+      owner: VALID_ACCOUNT_ID,
+      counterparty: VALID_CP_ID,
+      requiredQuorum: 3,
+      attestations: [
+        { attestor: OBSERVER_1, role: "OBSERVER" },
+        { attestor: OBSERVER_2, role: "OBSERVER" },
+      ],
+    });
+
+    assert.strictEqual(res.requiredObserverQuorum, 3);
+    assert.strictEqual(res.submittedObserverCount, 2);
+    assert.strictEqual(res.distinctObserverCount, 2);
+    assert.strictEqual(res.quorumSatisfied, false);
+  });
+
+  it("passes verification when a quorum-3 case has three distinct valid observers", () => {
+    const res = verifyObserverQuorum({
+      caseId: VALID_CASE_ID,
+      owner: VALID_ACCOUNT_ID,
+      counterparty: VALID_CP_ID,
+      requiredQuorum: 3,
+      attestations: [
+        { attestor: OBSERVER_1, role: "OBSERVER" },
+        { attestor: OBSERVER_2, role: "OBSERVER" },
+        { attestor: OBSERVER_3, role: "OBSERVER" },
+      ],
+    });
+
+    assert.strictEqual(res.requiredObserverQuorum, 3);
+    assert.strictEqual(res.submittedObserverCount, 3);
+    assert.strictEqual(res.distinctObserverCount, 3);
+    assert.strictEqual(res.quorumSatisfied, true);
+  });
+
+  it("counts duplicate observer submissions only once", () => {
+    const res = verifyObserverQuorum({
+      caseId: VALID_CASE_ID,
+      owner: VALID_ACCOUNT_ID,
+      counterparty: VALID_CP_ID,
+      requiredQuorum: 2,
+      attestations: [
+        { attestor: OBSERVER_1, role: "OBSERVER" },
+        { attestor: OBSERVER_1, role: "OBSERVER" }, // duplicate submission
+        { attestor: OBSERVER_1, role: "OBSERVER" }, // duplicate submission
+      ],
+    });
+
+    assert.strictEqual(res.requiredObserverQuorum, 2);
+    assert.strictEqual(res.submittedObserverCount, 3);
+    assert.strictEqual(res.distinctObserverCount, 1);
+    assert.strictEqual(res.quorumSatisfied, false); // requires 2 distinct, only 1 provided
+  });
+
+  it("strictly excludes owner and counterparty attestations from observer quorum", () => {
+    const res = verifyObserverQuorum({
+      caseId: VALID_CASE_ID,
+      owner: VALID_ACCOUNT_ID,
+      counterparty: VALID_CP_ID,
+      requiredQuorum: 2,
+      attestations: [
+        { attestor: VALID_ACCOUNT_ID, role: "OBSERVER" }, // Owner trying to masquerade as observer
+        { attestor: VALID_CP_ID, role: "OBSERVER" },      // Counterparty trying to masquerade
+        { attestor: OBSERVER_1, role: "OBSERVER" },
+      ],
+    });
+
+    assert.strictEqual(res.requiredObserverQuorum, 2);
+    // Only OBSERVER_1 is valid (owner and CP excluded)
+    assert.strictEqual(res.distinctObserverCount, 1);
+    assert.strictEqual(res.quorumSatisfied, false);
+    assert.deepStrictEqual(res.distinctObservers, [OBSERVER_1]);
   });
 });

@@ -202,8 +202,110 @@ describe("API Service - Attestation Lifecycle", () => {
     });
 
     assert.strictEqual(listRes.statusCode, 200);
-    const body = listRes.body as { caseId: string; attestations: unknown[] };
+    const body = listRes.body as {
+      caseId: string;
+      attestations: unknown[];
+      requiredObserverQuorum: number;
+      distinctObserverCount: number;
+      quorumSatisfied: boolean;
+    };
     assert.strictEqual(body.caseId, sampleTerms.caseId);
     assert.strictEqual(body.attestations.length, 1);
+    assert.strictEqual(body.requiredObserverQuorum, 1);
+    assert.strictEqual(body.distinctObserverCount, 0); // Only OWNER submitted, not OBSERVER
+    assert.strictEqual(body.quorumSatisfied, false);
+  });
+
+  it("exposes distinct observer quorum verification details and enforces threshold (TASK A & K)", async () => {
+    const { server } = setup();
+
+    const caseId = "7777777777777777777777777777777777777777777777777777777777777777";
+    const terms = {
+      ...sampleTerms,
+      caseId,
+      observerQuorum: 2, // Quorum of 2 required
+    };
+
+    await server.inject({
+      method: "POST",
+      url: "/v1/cases",
+      body: { expected: terms },
+    });
+
+    const obs1 = "G" + "A".repeat(55);
+    const obs2 = "G" + "B".repeat(55);
+
+    // 1. Submit OWNER attestation — must NOT count towards observer quorum
+    const ownerAttRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/attest`,
+      body: { role: "OWNER", attestor: terms.owner, commitment: termsCommitment },
+    });
+    assert.strictEqual(ownerAttRes.statusCode, 201);
+
+    let quorumRes = await server.inject({ method: "GET", url: `/v1/cases/${caseId}/quorum` });
+    assert.strictEqual(quorumRes.statusCode, 200);
+    let qBody = quorumRes.body as {
+      requiredObserverQuorum: number;
+      distinctObserverCount: number;
+      submittedObserverCount: number;
+      quorumSatisfied: boolean;
+    };
+    assert.strictEqual(qBody.requiredObserverQuorum, 2);
+    assert.strictEqual(qBody.distinctObserverCount, 0);
+    assert.strictEqual(qBody.quorumSatisfied, false);
+
+    // 2. Submit First OBSERVER attestation (1 distinct)
+    const obs1Res = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/attest`,
+      body: { role: "OBSERVER", attestor: obs1, commitment: termsCommitment },
+    });
+    assert.strictEqual(obs1Res.statusCode, 201);
+
+    quorumRes = await server.inject({ method: "GET", url: `/v1/cases/${caseId}/quorum` });
+    qBody = quorumRes.body as typeof qBody;
+    assert.strictEqual(qBody.distinctObserverCount, 1);
+    assert.strictEqual(qBody.quorumSatisfied, false);
+
+    // 3. Duplicate OBSERVER submission by same observer — must NOT increment distinct count
+    const dupRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/attest`,
+      body: { role: "OBSERVER", attestor: obs1, commitment: termsCommitment },
+    });
+    assert.strictEqual(dupRes.statusCode, 201);
+
+    quorumRes = await server.inject({ method: "GET", url: `/v1/cases/${caseId}/quorum` });
+    qBody = quorumRes.body as typeof qBody;
+    assert.strictEqual(qBody.distinctObserverCount, 1);
+    assert.strictEqual(qBody.submittedObserverCount, 1);
+    assert.strictEqual(qBody.quorumSatisfied, false);
+
+    // 4. Second distinct OBSERVER attestation — quorum now satisfied!
+    const obs2Res = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/attest`,
+      body: { role: "OBSERVER", attestor: obs2, commitment: termsCommitment },
+    });
+    assert.strictEqual(obs2Res.statusCode, 201);
+
+    quorumRes = await server.inject({ method: "GET", url: `/v1/cases/${caseId}/quorum` });
+    qBody = quorumRes.body as typeof qBody;
+    assert.strictEqual(qBody.distinctObserverCount, 2);
+    assert.strictEqual(qBody.quorumSatisfied, true);
+
+    // 5. Also verify GET /v1/cases/:caseId/attestations exposes the same verification status
+    const listRes = await server.inject({ method: "GET", url: `/v1/cases/${caseId}/attestations` });
+    const listBody = listRes.body as {
+      requiredObserverQuorum: number;
+      distinctObserverCount: number;
+      quorumSatisfied: boolean;
+      distinctObservers: string[];
+    };
+    assert.strictEqual(listBody.requiredObserverQuorum, 2);
+    assert.strictEqual(listBody.distinctObserverCount, 2);
+    assert.strictEqual(listBody.quorumSatisfied, true);
+    assert.deepStrictEqual(listBody.distinctObservers.sort(), [obs1, obs2].sort());
   });
 });

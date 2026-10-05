@@ -160,13 +160,24 @@ describe("API Service - Settlement Finalization on Soroban", () => {
       },
     });
 
-    // 5. Resolve Dispute
-    await server.inject({
+    // 5. Resolve Dispute (both owner and counterparty submit matching resolution)
+    const resolveRes = await server.inject({
       method: "POST",
       url: `/v1/cases/${brokenCaseTerms.caseId}/resolve`,
       body: {
         resolver: brokenCaseTerms.owner,
         resolutionType: "MUTUAL_SETTLEMENT_AMENDMENT",
+      },
+    });
+    const resolveBody = resolveRes.body as { resolutionCommitment: string };
+
+    await server.inject({
+      method: "POST",
+      url: `/v1/cases/${brokenCaseTerms.caseId}/resolve`,
+      body: {
+        resolver: brokenCaseTerms.counterparty,
+        resolutionType: "MUTUAL_SETTLEMENT_AMENDMENT",
+        resolutionCommitment: resolveBody.resolutionCommitment,
       },
     });
 

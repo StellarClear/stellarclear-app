@@ -77,7 +77,37 @@ describe("Indexer Service - Event Decoding", () => {
       null
     );
   });
+  it("decodes DisputeExpired event", () => {
+    const decoded = decodeContractEvent({
+      type: "contract",
+      ledger: 1100,
+      contractId: VALID_CONTRACT_ID,
+      id: "0000001100-0000000001",
+      topic: ["DisputeExpired", VALID_CASE_ID],
+      value: { expiration_ledger: 1090, closed_at_ledger: 1100 },
+    });
+    assert.ok(decoded);
+    assert.strictEqual(decoded!.type, "DisputeExpired");
+    assert.strictEqual(decoded!.caseId, VALID_CASE_ID);
+    assert.strictEqual(decoded!.payload["expirationLedger"], 1090);
+    assert.strictEqual(decoded!.payload["closedAtLedger"], 1100);
+  });
+
+  it("decodes CaseQuorumSet event", () => {
+    const decoded = decodeContractEvent({
+      type: "contract",
+      ledger: 1101,
+      contractId: VALID_CONTRACT_ID,
+      id: "0000001101-0000000001",
+      topic: ["CaseQuorumSet", VALID_CASE_ID],
+      value: { quorum: 3 },
+    });
+    assert.ok(decoded);
+    assert.strictEqual(decoded!.type, "CaseQuorumSet");
+    assert.strictEqual(decoded!.payload["quorum"], 3);
+  });
 });
+
 
 describe("Indexer Service - Ingestion, Idempotency & Recovery", () => {
   it("ingests a batch of events and advances cursor", async () => {
@@ -279,5 +309,114 @@ describe("Indexer Service - Ingestion, Idempotency & Recovery", () => {
     await newIndexerInstance.init();
     assert.strictEqual(newIndexerInstance.cursor.ledger, 9999);
     assert.strictEqual(newIndexerInstance.cursor.eventCursor, "cursor-9999");
+  });
+
+  it("does not advance cursor beyond a failed event and retries failed event upon restart (TASK F)", async () => {
+    const dbClient = createDatabaseClient({
+      databaseUrl: "postgresql://postgres:postgres@localhost:5432/stellarclear_test",
+      network: "testnet",
+    });
+    const cursorRepo = new CursorRepository(dbClient);
+    const caseRepo = new CaseRepository(dbClient);
+
+    const indexer = new IndexerService(dbClient, {
+      network: "testnet",
+      contractId: VALID_CONTRACT_ID,
+    });
+    await indexer.init();
+
+    // Event 1: Valid CaseCreated
+    const event1: RawStellarEvent = {
+      type: "contract",
+      ledger: 2001,
+      contractId: VALID_CONTRACT_ID,
+      id: "cursor-001",
+      pagingToken: "cursor-001",
+      topic: ["CaseCreated", "case-atomicity-001"],
+      value: { owner: VALID_OWNER, expires_at_ledger: 2050 },
+    };
+
+    // Mock processor to throw a database/processing failure on case-atomicity-002
+    const originalProcess = (indexer as any).processor.processEvent.bind((indexer as any).processor);
+    (indexer as any).processor.processEvent = async (event: any) => {
+      if (event.caseId === "case-atomicity-002") {
+        throw new Error("Simulated database write failure for event 2");
+      }
+      return originalProcess(event);
+    };
+
+    // Event 2: Valid format, but processor will fail during persistence
+    const event2Failing: RawStellarEvent = {
+      type: "contract",
+      ledger: 2002,
+      contractId: VALID_CONTRACT_ID,
+      id: "cursor-002",
+      pagingToken: "cursor-002",
+      topic: ["CaseCreated", "case-atomicity-002"],
+      value: { owner: VALID_OWNER, expires_at_ledger: 2050 },
+    };
+
+    // Event 3: Valid CaseCreated that should NOT be skipped over
+    const event3: RawStellarEvent = {
+      type: "contract",
+      ledger: 2003,
+      contractId: VALID_CONTRACT_ID,
+      id: "cursor-003",
+      pagingToken: "cursor-003",
+      topic: ["CaseCreated", "case-atomicity-003"],
+      value: { owner: VALID_OWNER, expires_at_ledger: 2050 },
+    };
+
+    // Ingest the batch containing [event1, event2Failing, event3]
+    const result = await indexer.ingestBatch([event1, event2Failing, event3]);
+
+    // 1. Only event 1 should have been ingested
+    assert.strictEqual(result.ingestedCount, 1);
+    assert.strictEqual(result.errors.length, 1);
+
+    // 2. Cursor must NOT advance to event 2 or event 3
+    assert.strictEqual(indexer.cursor.ledger, 2001);
+    assert.strictEqual(indexer.cursor.eventCursor, "cursor-001");
+
+    // 3. Durable cursor in DB must be at event 1
+    const durableCursor = await cursorRepo.getCursor("testnet");
+    assert.strictEqual(durableCursor?.last_processed_ledger, 2001);
+    assert.strictEqual(durableCursor?.last_processed_event_cursor, "cursor-001");
+
+    // 4. Case 3 must NOT exist in DB because event 3 was not processed
+    const case3 = await caseRepo.findById("case-atomicity-003", "testnet");
+    assert.strictEqual(case3, null);
+
+    // 5. Simulate indexer restart: new instance must resume from cursor-001 (retrying event 2)
+    const restartedIndexer = new IndexerService(dbClient, {
+      network: "testnet",
+      contractId: VALID_CONTRACT_ID,
+    });
+    await restartedIndexer.init();
+    assert.strictEqual(restartedIndexer.cursor.ledger, 2001);
+    assert.strictEqual(restartedIndexer.cursor.eventCursor, "cursor-001");
+
+    // 6. Now event 2 is fixed / replayed successfully along with event 3
+    const event2Fixed: RawStellarEvent = {
+      type: "contract",
+      ledger: 2002,
+      contractId: VALID_CONTRACT_ID,
+      id: "cursor-002",
+      pagingToken: "cursor-002",
+      topic: ["CaseCreated", "case-atomicity-002"],
+      value: { owner: VALID_OWNER, expires_at_ledger: 2050 },
+    };
+
+    const retryResult = await restartedIndexer.ingestBatch([event2Fixed, event3]);
+    assert.strictEqual(retryResult.ingestedCount, 2);
+    assert.strictEqual(retryResult.errors.length, 0);
+
+    // 7. Cursor now advances cleanly to event 3
+    assert.strictEqual(restartedIndexer.cursor.ledger, 2003);
+    assert.strictEqual(restartedIndexer.cursor.eventCursor, "cursor-003");
+
+    const finalDurableCursor = await cursorRepo.getCursor("testnet");
+    assert.strictEqual(finalDurableCursor?.last_processed_ledger, 2003);
+    assert.strictEqual(finalDurableCursor?.last_processed_event_cursor, "cursor-003");
   });
 });
