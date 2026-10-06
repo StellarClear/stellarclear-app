@@ -62,10 +62,10 @@ The StellarClear protocol strictly separates trustless on-chain state anchoring 
 | **Historical Prototype Contract ID (v0.1.0)** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
 | **Active Explorer Contract URL** | [`https://stellar.expert/explorer/testnet/contract/CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5`](https://stellar.expert/explorer/testnet/contract/CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5) |
 | **Application Release Tag** | [`v0.1.1`](https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.1) (Historical prototype: `v0.1.0`) |
-| **Application Release Commit** | `3c4ae1c3b09b71ea7bb4a067a115fda7862f5d3f` |
+| **Application Release Commit** | `f38e126f69572b45c48071db359726aedd4d17f6` (Historical prototype: `a554503060abd119dd43f308a45539f2df39fb18`) |
 | **Contract Release Tag** | [`v0.1.1`](https://github.com/StellarClear/stellarclear-contract/releases/tag/v0.1.1) (Historical prototype: `v0.1.0`) |
-| **Contract Release Commit** | `2032666be97e8bf09ba9073952041ae3e4573ff1` |
-| **Application `main` Commit** | `3c4ae1c3b09b71ea7bb4a067a115fda7862f5d3f` |
+| **Contract Release Commit** | `2032666be97e8bf09ba9073952041ae3e4573ff1` (Historical prototype: `3978e21cebb0a60bd3899e7b48d7b96e40479a3c`) |
+| **Application `main` Commit** | `f38e126f69572b45c48071db359726aedd4d17f6` (Historical prototype: `126c62c4a30e872c050a4980bbd4546554b5dfd4`) |
 | **Contract `main` Commit** | `2032666be97e8bf09ba9073952041ae3e4573ff1` |
 
 ---
