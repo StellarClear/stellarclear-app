@@ -18,7 +18,7 @@ const client = new StellarClearClient({
   network: "testnet",
   networkPassphrase: Networks.TESTNET.networkPassphrase,
   rpcUrl: "https://soroban-testnet.stellar.org",
-  contractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  contractId: "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
 });
 ```
 

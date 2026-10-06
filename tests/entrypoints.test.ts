@@ -45,7 +45,7 @@ describe("Standalone Service Entrypoints", () => {
           port: 0, // OS assigned ephemeral port
           host: "127.0.0.1",
           network: "testnet",
-          contractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          contractId: "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
         },
         db
       );
@@ -109,7 +109,7 @@ describe("Standalone Service Entrypoints", () => {
           pollIntervalMs: 60000, // large interval so test finishes before tick
           batchSize: 10,
           rpcUrl: "https://soroban-testnet.stellar.org",
-          contractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+          contractId: "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
         },
         db
       );

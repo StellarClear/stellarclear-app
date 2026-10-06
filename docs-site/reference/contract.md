@@ -2,11 +2,12 @@
 
 The `SettlementRegistry` Soroban smart contract (hosted in `StellarClear/stellarclear-contract`) serves as the authoritative on-chain state machine and evidentiary anchor for StellarClear.
 
-## Contract Metadata (v0.1.0)
-- **Version**: `0.1.0`
+## Contract Metadata
+- **Release Version**: `0.1.1` (Hardened release)
 - **Soroban SDK**: `27.0.4`
 - **Target**: `wasm32v1-none`
-- **Testnet Contract ID**: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
+- **Active Testnet Contract ID**: `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5`
+- **Historical Prototype Contract ID (v0.1.0)**: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
 
 ---
 

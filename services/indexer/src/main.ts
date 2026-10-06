@@ -33,7 +33,7 @@ export function loadIndexerConfigFromEnv(
     network: env["STELLAR_NETWORK"] || "testnet",
     contractId:
       env["STELLAR_CONTRACT_ID"] ||
-      "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
     rpcUrl: env["STELLAR_RPC_URL"] || "https://soroban-testnet.stellar.org",
     databaseUrl: env["DATABASE_URL"] || "postgres://localhost:5432/stellarclear_db",
     pollIntervalMs: env["INDEXER_POLL_INTERVAL_MS"]

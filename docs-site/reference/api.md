@@ -28,7 +28,7 @@ Readiness probe verifying DB and RPC connectivity.
 Returns service and deployed contract release version information.
 - **Response (`200 OK`)**:
   ```json
-  { "version": "0.1.0", "contractVersion": "0.1.0", "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC", "network": "testnet" }
+  { "version": "0.1.0", "contractVersion": "0.1.1", "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5", "network": "testnet" }
   ```
 
 ### 4. `GET /v1/operations/diagnostics`
