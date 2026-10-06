@@ -11,7 +11,7 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Soroban](https://img.shields.io/badge/Soroban-v27.0-purple.svg)](https://stellar.org/soroban)
-[![Version](https://img.shields.io/badge/version-0.1.0-green.svg)](https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.0)
+[![Version](https://img.shields.io/badge/version-0.1.1-green.svg)](https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.1)
 
 <p align="center">
   <strong>Open-source Stellar-native settlement evidence and reconciliation protocol.</strong>
