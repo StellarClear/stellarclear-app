@@ -37,7 +37,7 @@ The default `.env` is pre-configured to connect to the Stellar Testnet:
 STELLAR_NETWORK=testnet
 STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
 STELLAR_RPC_URL="https://soroban-testnet.stellar.org"
-STELLAR_CONTRACT_ID="CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+STELLAR_CONTRACT_ID="CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5"
 
 # Database Configuration
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/stellarclear_db"

@@ -1,0 +1,202 @@
+{
+  "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
+  "network": "testnet",
+  "initialLedger": 5049424,
+  "timestamp": "2026-10-06T07:11:50.438Z",
+  "flows": {
+    "flowA": {
+      "name": "Flow A: Match path to Finalized",
+      "caseId": "a101a1100deca600000000000000000000000000000000000000000000000000",
+      "createCase": {
+        "txHash": "438c1eb040117b6b251e8fa6c7c5693d117886bf1e2879b997a71e32cece57a9",
+        "ledger": 5049426,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/438c1eb040117b6b251e8fa6c7c5693d117886bf1e2879b997a71e32cece57a9"
+      },
+      "recordObservation": {
+        "txHash": "d1ccc1af84d586d27428ce925b1fc734290c31cfd3ae90fae4c0f6e21902df7c",
+        "ledger": 5049428,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/d1ccc1af84d586d27428ce925b1fc734290c31cfd3ae90fae4c0f6e21902df7c"
+      },
+      "submitOwnerAttestation": {
+        "txHash": "b7b4139e0d6fa170b8ec50c191ee71c3e91451ae00e4c237d5ffcf5a11a0fde4",
+        "ledger": 5049435,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/b7b4139e0d6fa170b8ec50c191ee71c3e91451ae00e4c237d5ffcf5a11a0fde4"
+      },
+      "submitObserverAttestation": {
+        "txHash": "0b7f856307a745b35db0ed6d0193654af130a954a224fd02096783cc5368b1f1",
+        "ledger": 5049437,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/0b7f856307a745b35db0ed6d0193654af130a954a224fd02096783cc5368b1f1"
+      },
+      "finalizeCase": {
+        "txHash": "a488dd6ae980fb7c36734b9fe7d9132955a6b480bcaf4da7b6883bdf75057081",
+        "ledger": 5049439,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/a488dd6ae980fb7c36734b9fe7d9132955a6b480bcaf4da7b6883bdf75057081"
+      },
+      "finalStatus": "Finalized"
+    },
+    "flowB": {
+      "name": "Flow B: Negative Quorum (Quorum 3 with only 2 distinct observers)",
+      "caseId": "b101a1100deca600000000000000000000000000000000000000000000000000",
+      "createCase": {
+        "txHash": "17ef062616e0073c1eb2a900c022eb7b4205bfebcd91d2d90558296399f305be",
+        "ledger": 5049441,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/17ef062616e0073c1eb2a900c022eb7b4205bfebcd91d2d90558296399f305be"
+      },
+      "setQuorum": {
+        "quorum": 3,
+        "txHash": "86d89391dadfd19bc3ac895a8a7843bb3dbdb44e618a3211174de0c37474b70f",
+        "ledger": 5049443,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/86d89391dadfd19bc3ac895a8a7843bb3dbdb44e618a3211174de0c37474b70f"
+      },
+      "ownerAttestation": {
+        "txHash": "b26da2ac773cc89bbdf218123bc4e03c5f7ea6889b1c85e6fcc7c64b2a348e9e",
+        "ledger": 5049449,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/b26da2ac773cc89bbdf218123bc4e03c5f7ea6889b1c85e6fcc7c64b2a348e9e"
+      },
+      "attestation1": {
+        "observer": "GCUBD3NR5XSOE4JIE6ZSBTKDZFDOGYX3E4WEQECEPDRZPBWMAQLGG34T",
+        "txHash": "d748c5d4bb862f3037acf67d5a996556dd472b18b61a0cc5c997ae84b68574df",
+        "ledger": 5049451,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/d748c5d4bb862f3037acf67d5a996556dd472b18b61a0cc5c997ae84b68574df"
+      },
+      "attestation2": {
+        "observer": "GA57NXJ4FNAEG33TEOBYIONPSZHNV6KDMRAQRKR22BYQPMUJIB2FNEJX",
+        "txHash": "05d41ddacd1e15c7b29fee7e1deae24952463ef9b4b198aedafb61756e4a5b01",
+        "ledger": 5049453,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/05d41ddacd1e15c7b29fee7e1deae24952463ef9b4b198aedafb61756e4a5b01"
+      },
+      "finalizeRejected": {
+        "rejectedAsExpected": true,
+        "errorCode": "Error(Contract, #19) [ObserverQuorumNotMet]",
+        "rawOutput": ""
+      }
+    },
+    "flowC": {
+      "name": "Flow C: Pure M-of-N Quorum (obs2 + obs3 satisfy quorum=2 without initial observer)",
+      "caseId": "c101a1100deca600000000000000000000000000000000000000000000000000",
+      "createCase": {
+        "txHash": "59c5ba93c5c82bf55ada2db24ef596e940c2ccd499deaced5c060b74e31f5a04",
+        "ledger": 5049455,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/59c5ba93c5c82bf55ada2db24ef596e940c2ccd499deaced5c060b74e31f5a04"
+      },
+      "setQuorum": {
+        "quorum": 2,
+        "txHash": "9f4f83e661058b33a35596eb502263cc392885159e24da379b4d7d793ff6a1a7",
+        "ledger": 5049457,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/9f4f83e661058b33a35596eb502263cc392885159e24da379b4d7d793ff6a1a7"
+      },
+      "initialObservationObserver": "GCUBD3NR5XSOE4JIE6ZSBTKDZFDOGYX3E4WEQECEPDRZPBWMAQLGG34T",
+      "ownerAttestation": {
+        "txHash": "f984a9e04920f5774b5433de1f3c4cec1d9ca16d551db69b184315c391fafbae",
+        "ledger": 5049463,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/f984a9e04920f5774b5433de1f3c4cec1d9ca16d551db69b184315c391fafbae"
+      },
+      "attestation1": {
+        "observer": "GA57NXJ4FNAEG33TEOBYIONPSZHNV6KDMRAQRKR22BYQPMUJIB2FNEJX",
+        "txHash": "415abf19c7e64fc8589dce0208856f2d20355dbd6c54e6188610bb44e5a716d7",
+        "ledger": 5049465,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/415abf19c7e64fc8589dce0208856f2d20355dbd6c54e6188610bb44e5a716d7"
+      },
+      "attestation2": {
+        "observer": "GDPBDRMVIDKOZKRA7XDVLHCEOCASPUHENCYO76L4OQECQM74MMSC33RO",
+        "txHash": "a32ae5495083d73e9d993b45f4882c7ed2dc77f7773621520449b267afb173ac",
+        "ledger": 5049468,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/a32ae5495083d73e9d993b45f4882c7ed2dc77f7773621520449b267afb173ac"
+      },
+      "finalizeCase": {
+        "txHash": "874217b5f3ed23ad80d245be9e87bdef767eb0229495b562d04ff19902db4869",
+        "ledger": 5049470,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/874217b5f3ed23ad80d245be9e87bdef767eb0229495b562d04ff19902db4869"
+      },
+      "finalStatus": "Finalized"
+    },
+    "flowD": {
+      "name": "Flow D: Historical Attestation Survival & Observer Revocation",
+      "caseId": "d101a1100deca600000000000000000000000000000000000000000000000000",
+      "revokedObserver": "GDSH4DAOSRFKMYDSWHYS2EUMLZNEQMVZ3O4F3Z7W2IPDLYA4MWWA6FUB",
+      "createCase": {
+        "txHash": "51549b7438a29e5af95b3199029a222e511f6aaca550f9f3c53c3f2740dea075",
+        "ledger": 5049472,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/51549b7438a29e5af95b3199029a222e511f6aaca550f9f3c53c3f2740dea075"
+      },
+      "attestationSubmission": {
+        "txHash": "a8ded3bd0726c7105d580aff9f338278d15f3a300fbc70f4e7e0160363acdb54",
+        "ledger": 5049285,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/a8ded3bd0726c7105d580aff9f338278d15f3a300fbc70f4e7e0160363acdb54"
+      },
+      "removeObserver": {
+        "txHash": "0a3620f61afb0b991cb79cb079586b0ea8bb147e7d42fe9091254c9ec43f09b6",
+        "ledger": 5049287,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/0a3620f61afb0b991cb79cb079586b0ea8bb147e7d42fe9091254c9ec43f09b6"
+      },
+      "isActiveObserverAfterRevocation": false,
+      "historicalAttestationPreserved": true
+    },
+    "flowE": {
+      "name": "Flow E: Dispute & Mutual Resolution",
+      "caseId": "e101a1100deca600000000000000000000000000000000000000000000000000",
+      "createCase": {
+        "txHash": "24975e3d9a16aae750c8c4217a78872d31accc04d624db6b49871ec7f6dd0915",
+        "ledger": 5049480,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/24975e3d9a16aae750c8c4217a78872d31accc04d624db6b49871ec7f6dd0915"
+      },
+      "recordBreak": {
+        "txHash": "41fcd32f5db1ab94e1668d8c269d885a90832802417e4ea283bb4e2edbb23835",
+        "ledger": 5049484,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/41fcd32f5db1ab94e1668d8c269d885a90832802417e4ea283bb4e2edbb23835"
+      },
+      "openDispute": {
+        "txHash": "378ca7b6401d28e635e214aa518237524681fff3e48b9936dd404c593a369da6",
+        "ledger": 5049486,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/378ca7b6401d28e635e214aa518237524681fff3e48b9936dd404c593a369da6"
+      },
+      "firstResolutionSubmission": {
+        "resolver": "GA46EG7MGQGVHEUAHSTERPYST474DPIONG6NZGKVJ3ULCPRWNG35EFEM",
+        "txHash": "55e7dccab63ca6da7d076e49a9024322d271447f4245f3dbb9e99076bebb5a24",
+        "ledger": 5049489,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/55e7dccab63ca6da7d076e49a9024322d271447f4245f3dbb9e99076bebb5a24",
+        "statusRemainsDisputed": true
+      },
+      "secondResolutionSubmission": {
+        "resolver": "GCSYVR5OIJI7FQYZUC2XPMVKL52DIDYNM6OLUF2MI52MJTI4D4ICBU7U",
+        "txHash": "0f9018a6fbc577c765c6701e3d81781fa44ba702c5cd2d59cff25f451c7955e7",
+        "ledger": 5049491,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/0f9018a6fbc577c765c6701e3d81781fa44ba702c5cd2d59cff25f451c7955e7",
+        "finalStatusResolved": true
+      }
+    },
+    "flowF": {
+      "name": "Flow F: Dispute Expiration with Custom TTL",
+      "caseId": "f101a1100deca600000000000000000000000000000000000000000000000000",
+      "createCase": {
+        "txHash": "6ec27e977aa019efdacb46ba69bdb6e5edf5bfa9463a1953b423962abe772268",
+        "ledger": 5049494,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/6ec27e977aa019efdacb46ba69bdb6e5edf5bfa9463a1953b423962abe772268"
+      },
+      "recordBreak": {
+        "txHash": "141225770fced011a097436f65277e16d028a9b0446b6a3e32f0d87cfb87d768",
+        "ledger": 5049498,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/141225770fced011a097436f65277e16d028a9b0446b6a3e32f0d87cfb87d768"
+      },
+      "openDisputeWithTtl": {
+        "ttlLedgers": 120,
+        "txHash": "cdaa30dc13c314117cf3cadde1d375b3d27309a81188b4a393b7a0e33c5c0552",
+        "ledger": 5049500,
+        "explorerUrl": "https://stellar.expert/explorer/testnet/tx/cdaa30dc13c314117cf3cadde1d375b3d27309a81188b4a393b7a0e33c5c0552"
+      },
+      "expirationLedger": 5049620,
+      "prematureExpirationRejection": {
+        "rejectedAsExpected": true,
+        "errorCode": "Error(Contract, #20) [DisputeNotExpired]"
+      }
+    },
+    "flowG": {
+      "name": "Flow G: Finalized Immutability",
+      "targetCaseId": "a101a1100deca600000000000000000000000000000000000000000000000000",
+      "attemptedMutation": "open_dispute",
+      "rejectedAsExpected": true,
+      "errorCode": "Error(Contract, #7) [CaseAlreadyFinalized]",
+      "rawOutput": ""
+    }
+  }
+}

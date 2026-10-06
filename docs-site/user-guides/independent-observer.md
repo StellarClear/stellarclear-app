@@ -18,7 +18,7 @@ Observers must be authorized by the `SettlementRegistry` contract admin:
 
 ```bash
 stellar contract invoke \
-  --id CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC \
+  --id CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5 \
   --source <ADMIN_SECRET> \
   --network testnet \
   -- add_observer \

@@ -140,7 +140,7 @@ describe("API Service - Structured Settlement Health Diagnostics", () => {
     assert.strictEqual(body2.release.protocol, "STELLARCLEAR");
     assert.strictEqual(body2.release.version, "0.1.0");
     assert.strictEqual(body2.release.contract.name, "settlement_registry");
-    assert.strictEqual(body2.release.contract.version, "0.1.0");
+    assert.strictEqual(body2.release.contract.version, "0.1.1");
     assert.strictEqual(body2.release.contract.compatible, true);
     assert.ok(body2.release.features.includes("case_creation"));
   });
@@ -187,7 +187,7 @@ describe("API Service - Structured Settlement Health Diagnostics", () => {
     assert.strictEqual(body.version, "0.1.0");
     assert.strictEqual(body.releaseTag, "v0.1.0");
     assert.strictEqual(body.contract.name, "settlement_registry");
-    assert.strictEqual(body.contract.version, "0.1.0");
+    assert.strictEqual(body.contract.version, "0.1.1");
     assert.strictEqual(body.contract.specVersion, 1);
     assert.strictEqual(body.contract.compatible, true);
     assert.ok(body.features.includes("onchain_finalization"));

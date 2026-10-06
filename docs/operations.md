@@ -44,11 +44,11 @@ curl -i http://localhost:3000/ready
   "timestamp": "2026-10-01T12:00:00.000Z",
   "version": "0.1.0",
   "network": "testnet",
-  "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
   "services": {
     "database": { "status": "up", "details": { "driver": "postgresql/in-memory" } },
-    "sorobanRpc": { "status": "up", "details": { "network": "testnet", "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC" } },
-    "settlementRegistry": { "status": "up", "details": { "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC", "validFormat": true } },
+    "sorobanRpc": { "status": "up", "details": { "network": "testnet", "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5" } },
+    "settlementRegistry": { "status": "up", "details": { "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5", "validFormat": true } },
     "indexer": { "status": "up", "details": { "synced": true, "network": "testnet" } }
   }
 }
@@ -82,7 +82,7 @@ curl -s http://localhost:3000/v1/operations/diagnostics | jq
       "releaseTag": "v0.1.0",
       "wasmHash": "1018a81b1ac95046cb00466ceda7ee347204c08b71b1c51b3c9611dd32215d66",
       "specVersion": 1,
-      "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
       "network": "testnet",
       "compatible": true
     },
@@ -107,7 +107,7 @@ curl -s http://localhost:3000/v1/operations/diagnostics | jq
   },
   "contract": {
     "status": "healthy",
-    "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+    "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
     "network": "testnet",
     "rpcUrl": "https://soroban-testnet.stellar.org",
     "anchoringEnabled": true,
@@ -190,7 +190,7 @@ All streamed events adhere to a standard envelope:
 {
   "eventId": "evt_1650420_1",
   "network": "testnet",
-  "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
   "ledger": 1650420,
   "cursor": "0000000001650420-0000000001",
   "timestamp": "2026-10-01T12:00:00.000Z",

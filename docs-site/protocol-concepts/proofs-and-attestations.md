@@ -34,7 +34,7 @@ A **Settlement Proof** is a self-contained, portable cryptographic JSON artifact
       "attestedAt": "2026-10-01T12:06:30.000Z"
     }
   ],
-  "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
   "network": "testnet"
 }
 ```
