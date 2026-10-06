@@ -527,4 +527,128 @@ describe("Integration & E2E - Multi-Party Attestation & Lifecycle Automation (TA
     assert.strictEqual(expQuery.rows.length, 1);
     assert.strictEqual(Number((expQuery.rows[0] as { expired_at_ledger: number }).expired_at_ledger), soroban.currentLedger);
   });
+
+  it("preserves historical attestations when an observer is later revoked", async () => {
+    const { db, soroban, server } = setupLiveSettlementEnvironment();
+
+    soroban.registerObserver(OBSERVER_1);
+
+    const caseId = "e2e0000000000000000000000000000000000000000000000000000000000004";
+    const terms: ExpectedSettlement = {
+      caseId,
+      owner: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFTGOBKGOTQTV4HXY5SLQ",
+      counterparty: "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      tradeReference: "TR-E2E-HIST-001",
+      asset: "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+      amount: "10000.00",
+      expectedDestination: "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFTGOBKGOTQTV4HXY5SLQ",
+      reference: "INV-E2E-004",
+      deadline: 1900000,
+      observerQuorum: 1,
+    };
+
+    // 1. Create Case and configure quorum = 1
+    await server.inject({
+      method: "POST",
+      url: "/v1/cases",
+      body: { expected: terms, observerQuorum: 1 },
+    });
+    await soroban.setCaseQuorum(caseId, 1);
+
+    // 2. Observe & Reconcile
+    const observation: ObservedSettlement = {
+      txHash: "4444444444444444444444444444444444444444444444444444444444444444",
+      ledger: 1550030,
+      asset: terms.asset,
+      amount: terms.amount,
+      destination: terms.expectedDestination,
+      reference: terms.reference,
+      status: "SUCCESS",
+      observedAt: new Date().toISOString(),
+    };
+    await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/observe`,
+      body: { observation },
+    });
+    await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/reconcile`,
+    });
+
+    // 3. Observer 1 submits attestation while active & authorized
+    const obsCommitment = computeObservationCommitment(observation);
+    const obsAttRes = await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/attest`,
+      body: {
+        attestor: OBSERVER_1,
+        role: "OBSERVER",
+        commitment: obsCommitment,
+      },
+    });
+    assert.strictEqual(obsAttRes.statusCode, 201);
+
+    // 4. Case Owner attests
+    const ownerCommitment = computeTermsCommitment(terms);
+    await server.inject({
+      method: "POST",
+      url: `/v1/cases/${caseId}/attest`,
+      body: {
+        attestor: terms.owner,
+        role: "OWNER",
+        commitment: ownerCommitment,
+      },
+    });
+
+    // 5. Admin revokes Observer 1 from active whitelist
+    soroban.revokeObserver(OBSERVER_1);
+
+    // 6. Attempt by now-revoked Observer 1 to submit a new attestation on a new case must fail
+    await assert.rejects(async () => {
+      await soroban.anchorAttestation({
+        attestor: OBSERVER_1,
+        caseId,
+        role: "OBSERVER",
+        commitment: obsCommitment,
+      });
+    }, /ObserverNotRegistered/);
+
+    // 7. Verify historical attestation still counts in GET /v1/cases/:caseId/attestations
+    const listAttRes = await server.inject({
+      method: "GET",
+      url: `/v1/cases/${caseId}/attestations`,
+    });
+    const listBody = listAttRes.body as { attestations: Array<{ attestor: string; role: string }> };
+    assert.ok(Array.isArray(listBody.attestations));
+    assert.strictEqual(listBody.attestations.length, 2);
+    const hasHistObs = listBody.attestations.some((a) => a.attestor === OBSERVER_1 && a.role === "OBSERVER");
+    assert.strictEqual(hasHistObs, true);
+
+    // 8. Verify historical attestation satisfies quorum in GET /v1/cases/:caseId/quorum
+    const quorumRes = await server.inject({
+      method: "GET",
+      url: `/v1/cases/${caseId}/quorum`,
+    });
+    assert.strictEqual(quorumRes.statusCode, 200);
+    const quorumBody = quorumRes.body as {
+      distinctObserverCount: number;
+      quorumSatisfied: boolean;
+      distinctObservers: string[];
+    };
+    assert.strictEqual(quorumBody.distinctObserverCount, 1);
+    assert.strictEqual(quorumBody.quorumSatisfied, true);
+    assert.deepStrictEqual(quorumBody.distinctObservers, [OBSERVER_1]);
+
+    // 9. Proof export and verification retains historical attestation integrity
+    const proofRes = await server.inject({
+      method: "GET",
+      url: `/v1/cases/${caseId}/proof`,
+    });
+    assert.strictEqual(proofRes.statusCode, 200);
+    const proof = proofRes.body as SettlementProof;
+    assert.strictEqual(proof.caseId, caseId);
+    assert.strictEqual(proof.attestations.length, 2);
+  });
 });
+

@@ -315,6 +315,88 @@ export class SettlementRegistryOperations {
   }
 
   /**
+   * Constructs and executes open_dispute_with_ttl on Soroban SettlementRegistry contract.
+   */
+  public async openDisputeWithTtl(
+    params: {
+      initiator: string;
+      caseId: string;
+      disputeCommitment: string | Buffer;
+      ttlLedgers: number;
+    },
+    options?: contract.MethodOptions
+  ): Promise<TransactionResult<void>> {
+    try {
+      const caseIdBuffer = Buffer.from(params.caseId, "hex");
+      const commitmentBuffer =
+        typeof params.disputeCommitment === "string"
+          ? Buffer.from(params.disputeCommitment, "hex")
+          : params.disputeCommitment;
+
+      const tx = await this.contractClient.open_dispute_with_ttl(
+        {
+          initiator: params.initiator,
+          case_id: caseIdBuffer,
+          dispute_commitment: commitmentBuffer,
+          ttl_ledgers: params.ttlLedgers,
+        },
+        options
+      );
+
+      return {
+        txHash: extractTxHash(tx),
+        status: "SUCCESS",
+        result: undefined,
+      };
+    } catch (err: unknown) {
+      throw normalizeContractError(err);
+    }
+  }
+
+  /**
+   * Constructs and executes expire_dispute on Soroban SettlementRegistry contract.
+   */
+  public async expireDispute(
+    caseId: string,
+    options?: contract.MethodOptions
+  ): Promise<TransactionResult<void>> {
+    try {
+      const caseIdBuffer = Buffer.from(caseId, "hex");
+      const tx = await this.contractClient.expire_dispute(
+        { case_id: caseIdBuffer },
+        options
+      );
+
+      return {
+        txHash: extractTxHash(tx),
+        status: "SUCCESS",
+        result: undefined,
+      };
+    } catch (err: unknown) {
+      throw normalizeContractError(err);
+    }
+  }
+
+  /**
+   * Reads dispute expiration ledger sequence from Soroban SettlementRegistry contract.
+   */
+  public async getDisputeExpiration(
+    caseId: string,
+    options?: contract.MethodOptions
+  ): Promise<number | null> {
+    try {
+      const caseIdBuffer = Buffer.from(caseId, "hex");
+      const tx = await this.contractClient.get_dispute_expiration(
+        { case_id: caseIdBuffer },
+        options
+      );
+      return tx.result ?? null;
+    } catch (err: unknown) {
+      throw normalizeContractError(err);
+    }
+  }
+
+  /**
    * Constructs and executes submit_resolution on Soroban SettlementRegistry contract.
    */
   public async submitResolution(
