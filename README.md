@@ -2,7 +2,6 @@
 
 <div align="center">
 
-<!-- Banner / Logo -->
 <p align="center">
   <img src="assets/banner.jpeg" alt="StellarClear Banner" width="100%"/>
 </p>
@@ -13,171 +12,314 @@
 [![Soroban](https://img.shields.io/badge/Soroban-v27.0-purple.svg)](https://stellar.org/soroban)
 [![Version](https://img.shields.io/badge/version-0.1.1-green.svg)](https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.1)
 
-<p align="center">
-  <strong>Open-source Stellar-native settlement evidence and reconciliation protocol.</strong>
-</p>
+StellarClear is a non-custodial settlement verification protocol for Stellar that reconciles expected financial obligations with actual on-chain payments, records independent observer attestations, handles disputes, and anchors settlement evidence on Soroban.
 
 </div>
 
----
-
-## The Problem
-
-Traditional financial settlements between trading counterparties rely on manual reconciliation across disjoint spreadsheets and siloed internal databases, resulting in delayed dispute discovery, conflicting records, and unanchored audit trails. When payments execute on the Stellar network, off-chain bilateral trade agreements and on-chain ledger transfers still require deterministic, automated matching without exposing confidential commercial terms to public ledgers.
-
-StellarClear solves this by automatically comparing bilateral settlement commitments against observed Stellar payments, mathematically classifying breaks, and anchoring tamper-evident cryptographic commitments to Soroban smart contracts.
-
-> **Non-Custodial Boundary**: StellarClear **does NOT** move funds, hold user custody, or run escrow mechanisms. All token and asset transfers occur directly between counterparties' own Stellar accounts. StellarClear operates solely as an off-chain reconciliation engine, proof generator, and on-chain evidentiary audit anchor.
+> **Non-Custodial Boundary**: StellarClear **is not** a banking platform, payment processor, custodial service, or escrow platform. StellarClear **never** moves or takes custody of participant funds. All token and asset transfers execute directly between counterparties' own Stellar accounts. StellarClear operates exclusively as an off-chain reconciliation engine, proof generator, and on-chain evidentiary state anchor.
 
 ---
 
-## Overview
+## Quick Links
 
-StellarClear provides cryptographic certainty and operational visibility for institutional and peer-to-peer financial settlements on Stellar.
+| Resource | Link | Description |
+| :--- | :--- | :--- |
+| **Documentation Site** | [`https://stellarclear.github.io/stellarclear-app/`](https://stellarclear.github.io/stellarclear-app/) | Authoritative public documentation, guides, and specifications |
+| **Smart Contract Repository** | [`StellarClear/stellarclear-contract`](https://github.com/StellarClear/stellarclear-contract) | Rust Soroban `SettlementRegistry` contract implementation |
+| **Latest Release** | [`Application v0.1.1`](https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.1) | Pinned application release package and changelog |
+| **Stellar Testnet Contract** | [`CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5`](https://stellar.expert/explorer/testnet/contract/CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5) | Active hardened contract deployed on Stellar Testnet |
+| **Contract Explorer** | [StellarExpert Explorer](https://stellar.expert/explorer/testnet/contract/CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5) | Live on-chain contract transactions, state, and ledger history |
+| **API Reference** | [REST API Docs](https://stellarclear.github.io/stellarclear-app/reference/api.html) (Local: [`docs/api.md`](./docs/api.md)) | Endpoints, request/response schemas, and idempotency semantics |
+| **Security Policy** | [`SECURITY.md`](./SECURITY.md) | Vulnerability disclosure policy and security posture |
+| **Contributing Guide** | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Development workflow, commit conventions, and testing guidelines |
+| **Submission Package** | [`SUBMISSION_PACKAGE.md`](./SUBMISSION_PACKAGE.md) | Verified technical submission metadata and testnet execution evidence |
 
-The protocol continuously compares:
-1. **Expected Settlement Instructions** (off-chain bilateral agreements, trade parameters, deadlines), and
-2. **Observed Stellar Transactions** (on-chain payments, ledger sequences, timestamps, asset transfers),
+---
 
-and produces:
-- **Deterministic Reconciliation**: Automated exact match verification or standardized break classification.
-- **Cryptographic Commitments**: SHA-256 canonical commitments binding off-chain terms to on-chain state without leaking confidential trade terms.
-- **On-Chain Soroban Anchoring**: Immutable settlement evidence recorded in the `SettlementRegistry` contract.
-- **Multi-Party Attestation**: Cryptographic confirmations signed by owners, counterparties, and independent observers.
-- **Portable Settlement Proofs**: Self-contained JSON artifacts verifiable offline and against live Soroban state.
+## Project Status
 
-> **Contract Repository**: The smart contract implementation is hosted in [`StellarClear/stellarclear-contract`](https://github.com/StellarClear/stellarclear-contract) (`SettlementRegistry`). This monorepo consumes generated TypeScript bindings in `packages/settlement-registry`.
+| Metric | Status | Details |
+| :--- | :--- | :--- |
+| **Application Release** | `v0.1.1` | Packaged monorepo (API, indexer, matcher, proof, SDK) |
+| **Contract Release** | `v0.1.1` | Pinned Soroban `SettlementRegistry` (Commit `2032666`) |
+| **Network** | Stellar Testnet | RPC: `https://soroban-testnet.stellar.org` |
+| **Active Contract ID** | `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5` | Deployed at ledger `5048699` |
+| **Testnet Status** | Deployed & Verified | 7/7 lifecycle flows verified on-chain (`testnet-evidence.json`) |
+| **Documentation** | Live | Hosted via GitHub Pages at [`stellarclear.github.io/stellarclear-app`](https://stellarclear.github.io/stellarclear-app/) |
+| **Security Status** | Unaudited | Active development; formal third-party audit pending |
+
+> **Note**: StellarClear is currently deployed on Stellar Testnet. This Testnet deployment is intended for integration verification and testing, not production mainnet finance.
+
+---
+
+## What Exists Today
+
+The StellarClear repository contains a complete, verified settlement verification stack:
+
+1. **Soroban `SettlementRegistry` Contract**: On-chain state anchor recording cryptographic commitments, observer registries, breaks, disputes, and finalizations.
+2. **TypeScript SDK (`packages/sdk`)**: Client library providing typed contract bindings, error normalization, and M-of-N observer quorum verification.
+3. **Deterministic Matcher (`services/matcher`)**: Decimal-accurate arithmetic reconciliation engine identifying clean matches and standardized breaks.
+4. **REST API (`services/api`)**: High-throughput Fastify dispatcher for case ingestion, dispute workflows, attestation management, and operational diagnostics.
+5. **PostgreSQL Persistence (`packages/db`)**: Storage layer with idempotent insert guards, cursor tracking, and state deduplication.
+6. **Streaming Event Indexer (`services/indexer`)**: Event ingestion service tracking Soroban RPC events with durable checkpoint recovery.
+7. **Realtime WebSocket Stream**: Live WebSocket event subscription stream for instant state synchronization.
+8. **Cryptographic Proof Package (`packages/proof`)**: RFC 8785 canonical JSON serializer and collision-resistant SHA-256 commitment generator.
+9. **Verified Testnet Deployment**: Live deployment on Stellar Testnet verified with real transaction evidence across all lifecycle scenarios.
+10. **Public Documentation Site**: Standalone VitePress documentation site deployed to GitHub Pages.
+
+> **Web dashboard**: Planned as a post-release product layer. The current release exposes the protocol through the SDK, API, indexer, realtime stream, and Soroban contract.
+
+---
+
+## How StellarClear Works
+
+### Settlement Lifecycle
+
+StellarClear reconciles trade expectations against actual Stellar payments using a deterministic state machine:
+
+```text
+Expected settlement
+      │
+      ▼
+Actual Stellar transaction
+      │
+      ▼
+Observation recorded
+      │
+      ▼
+Deterministic reconciliation
+      │
+      ├───────────────────────────────┐
+      ▼                               ▼
+   MATCHED                          BREAK
+      │                               │
+      │                               ▼
+      │                            DISPUTED
+      │                               │
+      │              ┌────────────────┴────────────────┐
+      │              ▼                                 ▼
+      │      Mutual Resolution                 Dispute Expiration
+      │              │                                 │
+      │              ▼                                 ▼
+      │           RESOLVED                           BREAK
+      │              │                                 │
+      └──────────────┼─────────────────────────────────┘
+                     ▼
+           Observer attestations
+                     │
+                     ▼
+           M-of-N quorum check
+                     │
+                     ▼
+               FINALIZED (Immutable)
+```
+
+1. **Expected Settlement (`OPEN`)**: Case owner registers trade parameters (parties, amount, asset, destination, deadline). A canonical SHA-256 hash (`termsCommitment`) is anchored on Soroban via `create_case`.
+2. **Transaction Observation (`OBSERVED`)**: When a counterparty executes a standard payment on Stellar, payment details are ingested and an `observationCommitment` is anchored on Soroban via `record_observation`.
+3. **Deterministic Reconciliation (`MATCHED` or `BREAK`)**: The matcher verifies amount, asset, destination, reference, and deadline.
+   - **Clean Match**: Case transitions to `MATCHED`.
+   - **Discrepancy**: Case transitions to `BREAK` with a standardized `BreakCode` recorded on Soroban via `record_break`.
+4. **Dispute & Resolution Path (If Break occurs)**:
+   - Either counterparty can submit supporting evidence to enter `DISPUTED` via `open_dispute`.
+   - **Mutual Resolution**: Both parties must submit matching resolution commitments before transitioning to `RESOLVED`. A single resolution submission remains `DISPUTED`.
+   - **Dispute Expiration**: If an optional TTL ledger bound expires without mutual resolution, any participant can invoke `expire_dispute` to return the case to `BREAK`.
+5. **Attestation & Quorum Verification**: Owner, counterparty, and authorized independent observers submit cryptographic signatures (`CaseAttested`).
+6. **Finalization (`FINALIZED`)**: The contract verifies that the required `M-of-N` distinct observer quorum is satisfied. `finalize_case` immutably seals the record against further state modifications.
+
+---
+
+## Why StellarClear
+
+StellarClear provides institutional-grade settlement guarantees through these core properties:
+
+- **Non-Custodial**: Operates strictly as an evidentiary oracle and reconciliation layer without ever taking possession of user tokens or running custodial escrows.
+- **Deterministic Reconciliation**: Evaluates exact decimal amounts and parameters without floating-point error or heuristic ambiguity.
+- **Cryptographic Commitments**: Stores canonical SHA-256 hashes on-chain, preserving commercial privacy while proving trade term integrity.
+- **Independent M-of-N Observer Quorum**: Requires threshold signatures from registered third-party observers, preventing unilateral finalization.
+- **Historical Attestation Integrity**: Valid observer attestations remain permanently recorded and respected even if an observer key is subsequently revoked.
+- **Dispute State Machine**: Supports structured contestation with evidence hashes and strictly guarded status progressions.
+- **Ledger-Based Dispute Expiration**: Enforces explicit ledger-sequence deadlines to prevent contested settlements from stalling indefinitely.
+- **Immutable Finalization**: Once sealed on Soroban, finalized settlement cases cannot be reopened, overwritten, or modified.
+- **Replay-Safe Indexing**: Idempotent event cursors and database constraints prevent duplicated state transitions on RPC reconnections.
+- **Portable Verification Evidence**: Generates self-contained JSON `SettlementProof` artifacts verifiable offline and against live Soroban state.
 
 ---
 
 ## Architecture
 
-StellarClear combines high-throughput off-chain processing with tamper-evident on-chain anchoring:
-
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           Off-Chain Layer                               │
-│  ┌───────────────────────┐       ┌───────────────────────────────────┐  │
-│  │   Private Trade Data  │       │         Matcher Engine            │  │
-│  │  (Expected & Observed)│ ───►  │  (Reconcile & Break Taxonomy)    │  │
-│  └───────────────────────┘       └─────────────────┬─────────────────┘  │
-│              │                                     │                    │
-│              ▼                                     ▼                    │
-│  ┌───────────────────────┐       ┌───────────────────────────────────┐  │
-│  │     Proof Engine      │       │            REST API               │  │
-│  │ (SHA-256 Commitments) │ ◄───► │   (Endpoints, Audit & Probes)     │  │
-│  └───────────────────────┘       └─────────────────┬─────────────────┘  │
-└────────────────────────────────────────────────────┼────────────────────┘
-                                                     │ Anchors & Verifies
-                                                     ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       Stellar & Soroban On-Chain Layer                  │
-│  ┌──────────────────────────────┐     ┌──────────────────────────────┐  │
-│  │      SettlementRegistry      │     │      Streaming Indexer       │  │
-│  │  (Soroban Smart Contract)    │ ──► │  (Event Sync & Checkpoints)  │  │
-│  └──────────────────────────────┘     └──────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    User["User / Integrator"] --> Access["SDK / REST API"]
+    Access --> Engine["Matcher / Proof Engine"]
+    Access --> SorobanRPC["Soroban RPC"]
+    Engine --> DB[("PostgreSQL")]
+    SorobanRPC --> Contract["SettlementRegistry (Soroban)"]
+    Contract --> Indexer["Streaming Indexer"]
+    Indexer --> DB
+    Indexer --> WS["Realtime WebSocket"]
 ```
 
-- **API Service (`services/api`)**: Dispatcher providing REST endpoints for case creation, observations, reconciliation, attestations, disputes, and operational health diagnostics.
-- **Matcher Service (`services/matcher`)**: Pure deterministic reconciliation engine performing exact string/decimal arithmetic and break classification.
-- **Indexer Service (`services/indexer`)**: Streaming ledger ingestion service that decodes Soroban contract events, maintains failure-safe checkpoints, and provides real-time WebSocket event streaming.
-- **Proof Package (`packages/proof`)**: Canonical deterministic JSON serialization (`RFC 8785`) and SHA-256 commitment generation.
-- **Database Package (`packages/db`)**: Repository abstraction supporting PostgreSQL with strict idempotency, dispute evidence persistence, and state deduplication.
-- **Client SDK (`packages/sdk`)**: TypeScript client library with typed contract bindings, error normalization, observer quorum APIs, and lifecycle helpers.
+### Component Roles
+
+- **Soroban Smart Contract (`SettlementRegistry`)**: The authoritative protocol state anchor on Stellar. Manages commitments, state progressions, observer whitelisting, and finalization immutability.
+- **PostgreSQL Database (`packages/db`)**: Durable indexed projection providing low-latency querying, idempotent updates, and historical audit storage.
+- **Proof Package (`packages/proof`)**: Deterministic canonical JSON serialization (`RFC 8785`) and SHA-256 commitment computation engine.
+- **Streaming Indexer (`services/indexer`)**: Event ingestion engine reading Soroban contract events, maintaining cursor checkpoints, and broadcasting real-time updates.
+- **Client SDK & REST API (`packages/sdk`, `services/api`)**: High-throughput access layer enabling case creation, observation ingestion, dispute coordination, and operational telemetry.
 
 ---
 
-## How It Works
+## Live Testnet
 
-### Worked Example: Bilateral Settlement Lifecycle
+The active hardened contract is deployed on Stellar Testnet and verified against the authoritative release artifact:
 
-Consider **Company A** (`GBRP...`) and **Company B** (`GA5Z...`) agreeing off-chain that Company A will pay **1,000 USDC** to Company B before ledger sequence `2000000`:
-
-1. **Case Creation (`OPEN`)**:
-   - Company A registers the expected settlement terms via API or SDK.
-   - The canonical `termsCommitment` hash is generated and anchored on Soroban via `create_case`.
-   - Observer quorum requirement is configured (default `1`).
-2. **Transaction Observation (`OBSERVED`)**:
-   - Company A executes a standard Stellar payment of 1,000 USDC directly to Company B.
-   - The payment transaction details (`txHash`, `amount`, `asset`, `destination`, `ledger`) are ingested.
-   - The canonical `observationCommitment` is anchored on Soroban via `record_observation`.
-3. **Deterministic Reconciliation (`MATCHED` or `BREAK`)**:
-   - The matcher verifies if amount, asset, destination, reference, deadline, and status match agreed terms.
-   - **Clean Match**: Status transitions to `MATCHED`.
-   - **Discrepancy (Break)**: Status transitions to `BREAK` with a standardized `BreakCode` recorded on Soroban via `record_break`.
-4. **Dispute & Mutual Resolution Path (If Break occurs)**:
-   - Either counterparty submits a dispute with supporting evidence (`DISPUTED`) via `open_dispute` (strictly guarded: only permitted from `BREAK` status).
-   - **Mutual Resolution**: Both owner and counterparty must submit matching resolution commitments before the case transitions to `RESOLVED`. The first submission remains `DISPUTED`.
-   - **Dispute Expiration**: If an optional TTL ledger sequence elapses without mutual agreement, any participant can trigger `expire_dispute`, returning the case to `BREAK`.
-5. **Multi-Party Attestation & Proof Generation**:
-   - Owner, counterparty, or registered observers submit cryptographic signatures (`CaseAttested`).
-   - A self-contained `SettlementProof` bundle is assembled.
-6. **Finalization (`FINALIZED`)**:
-   - Finalization verifies that the required `M-of-N` distinct observer quorum is satisfied.
-   - The case is finalized on Soroban via `finalize_case`, immutably locking the record against further state modifications.
-
-### State Machine
-
-```
-         ┌───────────────┐
-         │     OPEN      │  (Expected terms anchored on-chain)
-         └───────┬───────┘
-                 │
-                 ▼
-         ┌───────────────┐
-         │   OBSERVED    │  (Payment observed on Stellar ledger)
-         └───────┬───────┘
-                 │
-        Reconciliation Check
-        ┌────────┴────────┐
-        ▼                 ▼
- ┌─────────────┐   ┌─────────────┐
- │   MATCHED   │   │    BREAK    │  (Classified with BreakCode)
- └──────┬──────┘   └──────┬──────┘
-        │                 │
-        │                 ▼
-        │          ┌─────────────┐
-        │          │  DISPUTED   │◄───────┐
-        │          └──────┬──────┘        │ (Single resolution /
-        │                 │               │  remains DISPUTED)
-        │       ┌─────────┴─────────┐     │
-        │       │ (Mutual Agreement)│     │
-        │       ▼                   ▼     │
-        │ ┌─────────────┐    (TTL Expired)│
-        │ │  RESOLVED   │    ──► BREAK ───┘
-        │ └──────┬──────┘
-        │        │
-        └────────┼────────┐
-                 ▼        │ (Enforces Observer Quorum)
-         ┌───────────────┐│
-         │   FINALIZED   │◄
-         └───────────────┘
-```
-
-### Standardized Break Taxonomy
-
-When reconciliation fails, the matcher produces one of the following exact `BreakCode` values:
-
-| Break Code | Classification Description |
+| Property | Value |
 | :--- | :--- |
-| `AMOUNT_MISMATCH` | Observed transfer amount differs from the expected agreed amount. |
-| `ASSET_MISMATCH` | Observed Stellar asset code or issuer does not match agreed asset terms. |
-| `DESTINATION_MISMATCH` | Observed payment was transferred to an address other than `expectedDestination`. |
-| `REFERENCE_MISMATCH` | Observed payment memo or reference tag does not match agreed trade reference. |
-| `MISSING_SETTLEMENT` | No matching payment transaction observed before deadline expiration. |
-| `DUPLICATE_SETTLEMENT` | Multiple conflicting payment transactions observed for a single settlement case. |
-| `LATE_SETTLEMENT` | Observed transaction ledger sequence or timestamp occurred after agreed deadline. |
-| `FAILED_TRANSACTION` | Observed Stellar transaction completed with a failed execution status. |
-| `UNEXPECTED_TRANSACTION` | Observed transaction occurred with invalid or unregistered settlement metadata. |
+| **Network** | Stellar Testnet (`https://soroban-testnet.stellar.org`) |
+| **Active Contract ID** | `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5` |
+| **Contract Release** | `v0.1.1` (Commit `2032666`) |
+| **WASM SHA-256** | `0073a4cb2027140ac34e4db6c64c2d4104590ec60cf0ef2e424909eba9ae36ac` |
+| **Bytecode Size** | 32,773 bytes |
+| **Deployment Ledger** | `5048699` |
+| **Explorer Link** | [StellarExpert Contract Explorer](https://stellar.expert/explorer/testnet/contract/CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5) |
+| **Historical Prototype** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` *(v0.1.0 prototype preserved for provenance)* |
+
+### Verified On-Chain Scenarios
+
+All 7 protocol lifecycle flows have been executed and verified against `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5`:
+
+- **Flow A (Clean Match)**: Full pipeline (`create_case` &rarr; `observe` &rarr; `match` &rarr; `attest` &rarr; `finalize`) &mdash; [Tx `a488dd...`](https://stellar.expert/explorer/testnet/tx/a488dd6ae980fb7c36734b9fe7d9132955a6b480bcaf4da7b6883bdf75057081)
+- **Flow B (Negative Quorum)**: Finalization blocked with `ObserverQuorumNotMet (Error #19)` when 2/3 observers attest &mdash; [Tx `b26da2...`](https://stellar.expert/explorer/testnet/tx/b26da2ac773cc89bbdf218123bc4e03c5f7ea6889b1c85e6fcc7c64b2a348e9e)
+- **Flow C (M-of-N Quorum)**: Finalization succeeded with quorum 2 satisfied by observers 2 & 3 without initial observer &mdash; [Tx `874217...`](https://stellar.expert/explorer/testnet/tx/874217b5f3ed23ad80d245be9e87bdef767eb0229495b562d04ff19902db4869)
+- **Flow D (Observer Revocation)**: Historical attestation retained in storage after observer revocation &mdash; [Tx `0a3620...`](https://stellar.expert/explorer/testnet/tx/0a3620f61afb0b991cb79cb079586b0ea8bb147e7d42fe9091254c9ec43f09b6)
+- **Flow E (Dispute & Mutual Resolution)**: 1st resolution retained `DISPUTED`; 2nd matching resolution transitioned to `RESOLVED` &mdash; [Tx `0f9018...`](https://stellar.expert/explorer/testnet/tx/0f9018a6fbc577c765c6701e3d81781fa44ba702c5cd2d59cff25f451c7955e7)
+- **Flow F (Dispute Expiration TTL)**: Premature expiration rejected with `DisputeNotExpired (Error #20)` until TTL elapsed &mdash; [Tx `cdaa30...`](https://stellar.expert/explorer/testnet/tx/cdaa30dc13c314117cf3cadde1d375b3d27309a81188b4a393b7a0e33c5c0552)
+- **Flow G (Finalized Immutability)**: Post-finalization mutations rejected with `InvalidState (Error #7)` &mdash; [Tx `438c1e...`](https://stellar.expert/explorer/testnet/tx/438c1eb040117b6b251e8fa6c7c5693d117886bf1e2879b997a71e32cece57a9)
+
+Detailed transaction hashes and verification payloads are recorded in [`testnet-evidence.json`](./testnet-evidence.json) and [`SUBMISSION_PACKAGE.md`](./SUBMISSION_PACKAGE.md).
+
+---
+
+## Documentation
+
+The authoritative public documentation is available on the live documentation site:
+
+**[https://stellarclear.github.io/stellarclear-app/](https://stellarclear.github.io/stellarclear-app/)**
+
+### Documentation Map
+
+| Area | Online Documentation | Repository Source |
+| :--- | :--- | :--- |
+| **Architecture & Concepts** | [Architecture Guide](https://stellarclear.github.io/stellarclear-app/getting-started/architecture.html) | [`docs/architecture.md`](./docs/architecture.md) |
+| **Settlement Lifecycle** | [Lifecycle State Machine](https://stellarclear.github.io/stellarclear-app/protocol-concepts/lifecycle.html) | [`docs/settlement-lifecycle.md`](./docs/settlement-lifecycle.md) |
+| **Break Taxonomy** | [Reconciliation Breaks](https://stellarclear.github.io/stellarclear-app/protocol-concepts/break-taxonomy.html) | [`docs-site/protocol-concepts/break-taxonomy.md`](./docs-site/protocol-concepts/break-taxonomy.md) |
+| **Client SDK** | [TypeScript SDK Guide](https://stellarclear.github.io/stellarclear-app/developer-guide/sdk.html) | [`packages/sdk/`](./packages/sdk/) |
+| **REST API** | [REST API Reference](https://stellarclear.github.io/stellarclear-app/reference/api.html) | [`docs/api.md`](./docs/api.md) |
+| **Contract Integration** | [Soroban Integration](https://stellarclear.github.io/stellarclear-app/reference/contract.html) | [`docs/soroban-integration.md`](./docs/soroban-integration.md) |
+| **Independent Observers** | [Observer Onboarding Guide](https://stellarclear.github.io/stellarclear-app/user-guides/independent-observer.html) | [`docs-site/user-guides/independent-observer.md`](./docs-site/user-guides/independent-observer.html) |
+| **Deployment & Ops** | [Production Operations](https://stellarclear.github.io/stellarclear-app/developer-guide/operations.html) | [`docs/operations.md`](./docs/operations.md), [`docs/deployment.md`](./docs/deployment.md) |
+| **Release Runbook** | [Release Procedures](https://stellarclear.github.io/stellarclear-app/developer-guide/environment.html) | [`docs/production-release-procedure.md`](./docs/production-release-procedure.md) |
+| **Security Policy** | [Security Specification](https://stellarclear.github.io/stellarclear-app/community/security.html) | [`SECURITY.md`](./SECURITY.md) |
+| **Contributing** | [Contributor Guide](https://stellarclear.github.io/stellarclear-app/community/contributing.html) | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- **Node.js**: `>=22.12.0`
+- **npm**: `>=10.0.0`
+- **Docker & Docker Compose**: (Optional, for multi-service container runtime)
+
+### Setup & Installation
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/StellarClear/stellarclear-app.git
+cd stellarclear-app
+
+# 2. Install reproducible dependencies
+npm ci
+
+# 3. Build all workspace packages and services
+npm run build
+
+# 4. Run TypeScript strict typecheck
+npm run typecheck
+
+# 5. Run the complete test suite (234 tests across 63 suites)
+npm test
+```
+
+### Running Services Locally
+
+#### Option A: Standalone Service Scripts
+
+```bash
+# Copy example configuration
+cp .env.example .env
+
+# Start the REST API service (default: port 3000)
+npm run start:api
+
+# Start the streaming indexer service
+npm run start:indexer
+```
+
+#### Option B: Multi-Service Docker Topology
+
+The repository includes a production-ready container composition running PostgreSQL, the REST API, and the streaming indexer:
+
+```bash
+# Start PostgreSQL, API service, and Indexer service
+docker compose up -d
+
+# Verify service logs
+docker compose logs -f api
+```
+
+#### Option C: Documentation Site
+
+```bash
+# Start local documentation dev server
+npm run docs:dev
+
+# Build static documentation site for deployment
+npm run docs:build
+```
 
 ---
 
 ## Example Usage
 
-### 1. API Ingestion (`POST /v1/cases`)
+### 1. Client SDK Initialization
 
-**Request**:
+```typescript
+import { StellarClearClient, Networks } from "@stellarclear/sdk";
+
+// Initialize client with active Testnet contract
+const client = new StellarClearClient({
+  network: "testnet",
+  networkPassphrase: Networks.TESTNET.networkPassphrase,
+  rpcUrl: "https://soroban-testnet.stellar.org",
+  contractId: "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
+});
+
+// Generate deterministic case ID
+const caseId = client.generateCaseId(
+  "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFTGOBKGOTQTV4HXY5SLQ",
+  "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+  "TRADE-EURUSD-001"
+);
+
+// Query on-chain settlement state
+const onchainCase = await client.getCase(caseId);
+console.log("On-chain Status:", onchainCase?.status);
+```
+
+### 2. REST API Case Creation (`POST /v1/cases`)
+
 ```bash
 curl -X POST http://localhost:3000/v1/cases \
   -H "Content-Type: application/json" \
@@ -196,249 +338,92 @@ curl -X POST http://localhost:3000/v1/cases \
   }'
 ```
 
-**Response (`201 Created`)**:
-```json
-{
-  "case": {
-    "caseId": "1212121212121212121212121212121212121212121212121212121212121212",
-    "status": "OPEN",
-    "termsCommitment": "a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0",
-    "createdAt": "2026-10-01T12:00:00.000Z"
-  }
-}
-```
-
-### 2. Client SDK Usage
-
-```typescript
-import { StellarClearClient, Networks } from "@stellarclear/sdk";
-
-// 1. Initialize client
-const client = new StellarClearClient({
-  network: "testnet",
-  networkPassphrase: Networks.TESTNET.networkPassphrase,
-  rpcUrl: "https://soroban-testnet.stellar.org",
-  contractId: "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
-});
-
-// 2. Generate deterministic case identifier
-const caseId = client.generateCaseId(
-  "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFTGOBKGOTQTV4HXY5SLQ",
-  "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
-  "TRADE-EURUSD-001"
-);
-
-// 3. Query on-chain settlement state
-const onchainCase = await client.getCase(caseId);
-console.log("On-chain Status:", onchainCase?.status);
-```
-
-### 3. Sample Settlement Proof (`SettlementProof`)
-
-```json
-{
-  "protocol": "STELLARCLEAR",
-  "version": "0.1.0",
-  "caseId": "1212121212121212121212121212121212121212121212121212121212121212",
-  "termsCommitment": "a1b2c3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0",
-  "observationCommitment": "f0e1d2c3b4a59876543210fedcba9876543210fedcba9876543210fedcba9876",
-  "txHash": "3434343434343434343434343434343434343434343434343434343434343434",
-  "finalizedLedger": 2000100,
-  "result": "MATCHED",
-  "attestations": [
-    {
-      "role": "OWNER",
-      "signer": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFTGOBKGOTQTV4HXY5SLQ",
-      "signature": "304502210089abcdef...",
-      "attestedAt": "2026-10-01T12:05:00.000Z"
-    },
-    {
-      "role": "COUNTERPARTY",
-      "signer": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
-      "signature": "3044022011abcdef...",
-      "attestedAt": "2026-10-01T12:06:00.000Z"
-    }
-  ],
-  "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
-  "network": "testnet"
-}
-```
-
 ---
 
-## Trust Model & Privacy Boundary
+## Verification
 
-| Role / Entity | Capabilities & Responsibilities | Trust Assumptions |
+The repository enforces end-to-end quality through automated verification suites:
+
+| Verification Gate | Command | Scope & Results |
 | :--- | :--- | :--- |
-| **Case Owner** | Submits expected settlement instructions and signs owner attestations. | Assumed to agree with trade terms prior to anchoring. |
-| **Counterparty** | Executes payment on Stellar and submits counterparty attestations. | Relies on contract to anchor exact terms hash and dispute rights. |
-| **Observers** | Authorized independent verifiers or automated oracles registered on-chain. | Authorized on-chain by admin; can submit neutral witness attestations. |
-| **Contract Admin** | Configures contract parameters and registers observer public keys. | Multi-sig administrator; cannot mutate existing finalized cases. |
-
-### On-Chain vs. Off-Chain Separation
-
-- **What Goes On-Chain (Soroban `SettlementRegistry`)**:
-  - Deterministic 32-byte SHA-256 hashes (`termsCommitment`, `observationCommitment`, `resolutionCommitment`).
-  - Stellar payment transaction hash (`txHash`) and ledger sequence.
-  - Lifecycle state machine status (`CaseStatus`).
-  - Participant public keys, attestation signatures, and `BreakCode` identifiers.
-- **What Stays Off-Chain (Private Databases)**:
-  - Counterparty identities, account notes, commercial contracts, and trade descriptions.
-  - Raw financial transaction metadata and internal accounting references.
+| **Strict Typecheck** | `npm run typecheck` | Monorepo-wide TypeScript type safety without errors |
+| **Unit Test Suite** | `npm run test:unit` | 73 tests covering schemas, proof canonicalization, matcher arithmetic, DB client, and SDK |
+| **API Test Suite** | `npm run test:api` | Endpoint validation, case ingestion, and operational health probes |
+| **Security Regression** | `npm run test:security` | Adversarial attacks, input boundary fuzzing, replay attacks, and idempotency isolation |
+| **Indexer Test Suite** | `npm run test:indexer` | Event decoding, cursor checkpoints, and WebSocket event distribution |
+| **Integration Suite** | `npm run test:integration` | End-to-end lifecycles and simulated Soroban contract invocations |
+| **Full Release Pipeline** | `npm run verify:release` | 8-stage comprehensive pre-flight verification pipeline (**100% pass across all 234 tests**) |
+| **Live Testnet E2E** | Live execution | Real on-chain flows A through G recorded in [`testnet-evidence.json`](./testnet-evidence.json) |
 
 ---
 
-## Glossary
+## Release
 
-- **`termsCommitment`**: SHA-256 cryptographic digest of canonical JSON-serialized expected settlement terms (`STELLARCLEAR/TERMS/V1`).
-- **`observationCommitment`**: SHA-256 cryptographic digest of canonical JSON-serialized observed payment transaction data (`STELLARCLEAR/OBSERVATION/V1`).
-- **`resolutionCommitment`**: SHA-256 cryptographic digest of canonical terms agreed upon during dispute resolution (`STELLARCLEAR/RESOLUTION/V1`).
-- **`Observer`**: An authorized independent third party registered on-chain in `SettlementRegistry` capable of submitting attestations.
-- **`Attestation`**: A cryptographic signature submitted by an owner, counterparty, or observer confirming agreement with a case state.
-- **`BreakCode`**: A standardized machine-readable error code classifying the exact parameter variance during reconciliation.
-- **`Settlement Proof`**: A portable, self-contained JSON artifact proving a settlement occurred, reconciled, and anchored to Soroban.
+| Layer | Release Tag | Repository | Description |
+| :--- | :--- | :--- | :--- |
+| **Application Layer** | [`v0.1.1`](https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.1) | `StellarClear/stellarclear-app` | Off-chain API, indexer, matcher, proof engine, and client SDK |
+| **Contract Layer** | [`v0.1.1`](https://github.com/StellarClear/stellarclear-contract/releases/tag/v0.1.1) | `StellarClear/stellarclear-contract` | Authoritative Soroban `SettlementRegistry` contract and state machine |
 
----
+### Repository Relationship
 
-## Monorepo Structure
-
-```text
-stellarclear-app/
-├── packages/
-│   ├── schemas/               # Protocol Zod schemas and TypeScript domain models
-│   ├── proof/                 # Canonical serialization and proof generator/verifier
-│   ├── db/                    # Settlement persistence layer (PostgreSQL & In-Memory)
-│   ├── settlement-registry/   # Generated Soroban contract TypeScript bindings
-│   └── sdk/                   # StellarClear TypeScript client SDK
-├── services/
-│   ├── matcher/               # Deterministic settlement reconciliation engine
-│   ├── indexer/               # Durable Stellar & Soroban event ingestion service
-│   └── api/                   # REST API service (Fastify-compatible dispatcher)
-├── docs/                      # Technical architecture and operational specifications
-└── tests/                     # Unit, security, and live Soroban integration tests
-```
+- **`stellarclear-app`**: Manages off-chain computation, REST ingestion, relational PostgreSQL indexing, deterministic matching, cryptographic proof construction, and client SDK bindings.
+- **`stellarclear-contract`**: Hosts the immutable Soroban smart contract anchoring SHA-256 commitments, whitelisting observers, enforcing M-of-N quorum, and locking finalized settlements.
 
 ---
 
-## Quick Start
+## Security
 
-### Prerequisites
-- **Node.js**: `>=22.12.0`
-- **npm**: `>=10.0.0`
-- **Stellar CLI**: (Optional, for contract deployment/bindings)
+Security and cryptographic integrity are paramount to the StellarClear protocol:
 
-### Installation & Build
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/StellarClear/stellarclear-app.git
-cd stellarclear-app
-
-# 2. Clean install dependencies
-npm ci
-
-# 3. Build all workspace packages and services
-npm run build
-
-# 4. Run the full test suite (192+ tests)
-npm test
-```
-
-### Run a Demo Case Locally
-
-Execute the in-memory end-to-end multi-party settlement match test suite:
-
-```bash
-# Runs the full bilateral match, attestation, proof, and finalization pipeline
-npm run test:integration
-```
-
-### Modular Test Pipelines
-
-```bash
-npm run test:unit         # Unit and contract release tests
-npm run test:api          # API endpoints & operational health diagnostics
-npm run test:security     # Adversarial security & idempotency regression tests
-npm run test:indexer      # Indexer & event synchronization tests
-npm run test:integration  # Live Soroban contract integration tests
-
-# Run comprehensive 8-stage pre-release verification pipeline
-npm run verify:release
-```
-
----
-
-## Environment Configuration
-
-Copy the example environment file to configure network and database connections:
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Description | Default / Example |
-| :--- | :--- | :--- |
-| `STELLAR_NETWORK` | Target Stellar network | `testnet` |
-| `STELLAR_NETWORK_PASSPHRASE` | Network passphrase | `Test SDF Network ; September 2015` |
-| `STELLAR_RPC_URL` | Soroban RPC endpoint | `https://soroban-testnet.stellar.org` |
-| `STELLAR_CONTRACT_ID` | Deployed `SettlementRegistry` ID | `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5` |
-| `DATABASE_URL` | PostgreSQL connection URL | `postgresql://postgres:postgres@localhost:5432/stellarclear` |
-| `API_PORT` | REST API HTTP port | `3000` |
-
----
-
-## Documentation
-
-| Document | Description |
-| :--- | :--- |
-| [`docs/api.md`](./docs/api.md) | REST API endpoint reference, request/response schemas, idempotency semantics, and error codes. |
-| [`docs/architecture.md`](./docs/architecture.md) | System architecture, component responsibilities, layer separation, and end-to-end data flow. |
-| [`docs/deployment.md`](./docs/deployment.md) | Deployment guide for development, staging (Testnet), and production environments with Docker configurations. |
-| [`docs/integration-verification.md`](./docs/integration-verification.md) | Guide for executing unit, API, indexer, security regression, and live Soroban test suites. |
-| [`docs/operations.md`](./docs/operations.md) | Production operations, health/readiness probes, telemetry, cursor monitoring, and incident response playbooks. |
-| [`docs/production-release-procedure.md`](./docs/production-release-procedure.md) | Standard operating procedure for validating, pinning, deploying, and verifying production releases. |
-| [`docs/proof-verification.md`](./docs/proof-verification.md) | Technical specification for canonical domain serialization, commitments, and offline/online proof verification. |
-| [`docs/release-candidate-runbook.md`](./docs/release-candidate-runbook.md) | Step-by-step release candidate verification, operational diagnostic gates, and rollback runbook. |
-| [`docs/release-readiness.md`](./docs/release-readiness.md) | Pre-flight release verification criteria, artifact pinning requirements, and test audit checklists. |
-| [`docs/settlement-lifecycle.md`](./docs/settlement-lifecycle.md) | State machine specification, lifecycle transitions, break taxonomy, and dispute/arbitration workflows. |
-| [`docs/soroban-integration.md`](./docs/soroban-integration.md) | Soroban smart contract interface details, TypeScript bindings integration, and event streaming. |
-| [`docs/troubleshooting.md`](./docs/troubleshooting.md) | Diagnostic workflows for resolving reconciliation breaks, RPC connectivity issues, and database sync problems. |
-
----
-
-## Maintainers
-
-| Maintainer | Role | GitHub |
-| :--- | :--- | :--- |
-| **Adejumo** | Lead Developer & Maintainer | [@Adejumo-2](https://github.com/Adejumo-2) |
-| **Smog** | Core Contributor & Maintainer | [@smog123](https://github.com/smog123) |
-
----
-
-## Community & Discussions
-
-- **GitHub Discussions**: [StellarClear Discussions](https://github.com/StellarClear/stellarclear-app/discussions)
-- **Issues & Roadmap**: [GitHub Issues](https://github.com/StellarClear/stellarclear-app/issues)
-- **Stellar Developers**: [Stellar Developer Discord](https://discord.gg/stellardev)
+- **Security Policy**: Detailed in [`SECURITY.md`](./SECURITY.md).
+- **Vulnerability Disclosure**: Please report security vulnerabilities via GitHub Private Vulnerability Reporting or by contacting our team at [`security@stellarclear.io`](mailto:security@stellarclear.io) / [`adejumooluwasegun35@gmail.com`](mailto:adejumooluwasegun35@gmail.com). Do not open public issues for security vulnerabilities.
+- **Audit Status**: Unaudited. StellarClear is under active development and has not yet undergone a formal third-party audit. It should not be used with real production mainnet funds prior to an independent security audit.
+- **Credential Protection**: Private signing keys and secret seeds are never committed to the repository. Testnet credentials must remain strictly local.
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please check our open issues and read [`CONTRIBUTING.md`](./CONTRIBUTING.md) for development workflows, branch naming, and pull request guidelines.
+We welcome community contributions to StellarClear. Please refer to [`CONTRIBUTING.md`](./CONTRIBUTING.md) for full guidelines:
+
+- **Issue Workflow**: Check [open issues](https://github.com/StellarClear/stellarclear-app/issues) labeled `good first issue` or `help wanted` and request assignment before beginning work.
+- **Branch Naming**: Use descriptive branch names (e.g., `feat/dispute-ttl`, `fix/cursor-boundary`).
+- **Commit Conventions**: Follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`).
+- **Verification Gates**: Run `npm run typecheck && npm test && npm run verify:release` locally prior to submitting pull requests.
 
 ---
 
-## Contributors
+## Roadmap
 
-Made with [contrib.rocks](https://contrib.rocks).
+### Current Release (`v0.1.1`)
+- Core Soroban `SettlementRegistry` state machine with M-of-N observer quorum.
+- Deterministic reconciliation matcher with standardized `BreakCode` taxonomy.
+- Canonical JSON serialization (`RFC 8785`) and SHA-256 settlement proof generator.
+- Streaming indexer with cursor recovery and real-time WebSocket subscriptions.
+- Fastify REST API with operational diagnostics and health probes.
+- Pinned Stellar Testnet deployment with verified on-chain evidence.
 
-<a href="https://github.com/StellarClear/stellarclear-app/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=StellarClear/stellarclear-app" alt="StellarClear Contributors" />
-</a>
+### Post-Release Enhancements (Planned)
+- **Web Dashboard**: Planned as a post-release product layer for browser-based settlement monitoring and dispute visualization.
+- **Prometheus Telemetry**: Native Prometheus text exposition endpoint (`/metrics` &mdash; Issue [#18](https://github.com/StellarClear/stellarclear-app/issues/18)).
+- **RPC Error Recovery**: Adaptive exponential backoff with jitter for Soroban RPC rate-limit resilience (Issue [#19](https://github.com/StellarClear/stellarclear-app/issues/19)).
+- **Multi-Chain Event Anchoring**: Cross-reference connectors for external settlement networks.
+
+> **Dashboard Status**: A web dashboard is **PLANNED** for a future release. There is no deployed or hosted browser interface in v0.1.1.
+
+---
+
+## Ecosystem & Wave Submission
+
+StellarClear is prepared for Stellar Wave submission in the Drips ecosystem:
+
+- **Application Monorepo**: [`StellarClear/stellarclear-app`](https://github.com/StellarClear/stellarclear-app)
+- **Smart Contract Monorepo**: [`StellarClear/stellarclear-contract`](https://github.com/StellarClear/stellarclear-contract)
+- **Authoritative Submission Package**: [`SUBMISSION_PACKAGE.md`](./SUBMISSION_PACKAGE.md)
+- **Public Documentation Site**: [`https://stellarclear.github.io/stellarclear-app/`](https://stellarclear.github.io/stellarclear-app/)
 
 ---
 
 ## License
 
-Apache-2.0 — see [`LICENSE`](./LICENSE) for details.
+Apache-2.0 &mdash; see [`LICENSE`](./LICENSE) for details.
