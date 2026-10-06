@@ -5,7 +5,7 @@ This page outlines the deployed `v0.1.0` capabilities alongside planned post-v0.
 ## Current Deployed Scope (`v0.1.0`)
 
 The current release is deployed and active on the **Stellar Testnet**:
-- **Contract ID**: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
+- **Contract ID (Hardened Release v0.1.1)**: `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5` *(Historical prototype: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`)*
 - **Implemented Features**:
   - Deterministic 7-state settlement lifecycle state machine on Soroban.
   - Standardized 9-category reconciliation break taxonomy.

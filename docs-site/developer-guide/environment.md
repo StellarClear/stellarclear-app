@@ -9,7 +9,7 @@ StellarClear services and packages are configured using standard environment var
 | `STELLAR_NETWORK` | API, Indexer, SDK | Optional | `testnet` | Target Stellar network identifier (`testnet`, `mainnet`, `futurenet`, `standalone`). |
 | `STELLAR_NETWORK_PASSPHRASE` | API, Indexer, SDK | Optional | `Test SDF Network ; September 2015` | Authoritative network passphrase used for signing and transaction envelope validation. |
 | `STELLAR_RPC_URL` | API, Indexer, SDK | Optional | `https://soroban-testnet.stellar.org` | Soroban RPC endpoint URL. |
-| `STELLAR_CONTRACT_ID` | API, Indexer, SDK | **Required** | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` | 56-character StrKey contract ID (`C...`) for deployed `SettlementRegistry`. |
+| `STELLAR_CONTRACT_ID` | API, Indexer, SDK | **Required** | `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5` | 56-character StrKey contract ID (`C...`) for deployed `SettlementRegistry`. |
 | `DATABASE_URL` | API, Indexer, DB | **Required** | `postgresql://postgres:postgres@localhost:5432/stellarclear_db` | PostgreSQL connection string. |
 | `API_PORT` | API Service | Optional | `3000` | Port for the REST API HTTP server. |
 | `API_HOST` | API Service | Optional | `0.0.0.0` | Host IP address to bind API HTTP server. |

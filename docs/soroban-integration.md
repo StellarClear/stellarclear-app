@@ -48,7 +48,7 @@ import { StellarClearClient } from "@stellarclear/sdk";
 
 const client = new StellarClearClient({
   network: "testnet",
-  contractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  contractId: "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
   rpcUrl: "https://soroban-testnet.stellar.org",
 });
 
@@ -83,7 +83,7 @@ import { IndexerService } from "@stellarclear/indexer";
 
 const indexer = new IndexerService({
   network: "testnet",
-  contractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  contractId: "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
   rpcUrl: "https://soroban-testnet.stellar.org",
   pollIntervalMs: 2000,
 }, dbClient);

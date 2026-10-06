@@ -218,7 +218,7 @@ const client = new StellarClearClient({
   network: "testnet",
   networkPassphrase: Networks.TESTNET.networkPassphrase,
   rpcUrl: "https://soroban-testnet.stellar.org",
-  contractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  contractId: "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
 });
 
 // 2. Generate deterministic case identifier
@@ -259,7 +259,7 @@ console.log("On-chain Status:", onchainCase?.status);
       "attestedAt": "2026-10-01T12:06:00.000Z"
     }
   ],
-  "contractId": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+  "contractId": "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
   "network": "testnet"
 }
 ```
@@ -381,7 +381,7 @@ cp .env.example .env
 | `STELLAR_NETWORK` | Target Stellar network | `testnet` |
 | `STELLAR_NETWORK_PASSPHRASE` | Network passphrase | `Test SDF Network ; September 2015` |
 | `STELLAR_RPC_URL` | Soroban RPC endpoint | `https://soroban-testnet.stellar.org` |
-| `STELLAR_CONTRACT_ID` | Deployed `SettlementRegistry` ID | `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
+| `STELLAR_CONTRACT_ID` | Deployed `SettlementRegistry` ID | `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5` |
 | `DATABASE_URL` | PostgreSQL connection URL | `postgresql://postgres:postgres@localhost:5432/stellarclear` |
 | `API_PORT` | REST API HTTP port | `3000` |
 
