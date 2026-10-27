@@ -9,13 +9,14 @@ export default defineConfig({
     logo: "/banner.jpeg",
     siteTitle: "StellarClear Docs",
     nav: [
+      { text: "⚡ Live Dashboard", link: "/dashboard" },
       { text: "Getting Started", link: "/getting-started/overview" },
       { text: "Protocol", link: "/protocol-concepts/lifecycle" },
       { text: "User Guides", link: "/user-guides/case-owner" },
       { text: "Developers", link: "/developer-guide/environment" },
       { text: "Reference", link: "/reference/api" },
       { text: "Community", link: "/community/contributing" },
-      { text: "v0.1.0", link: "https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.0" },
+      { text: "v0.1.1", link: "https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.1" },
     ],
     sidebar: {
       "/getting-started/": [

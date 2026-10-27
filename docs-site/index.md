@@ -10,6 +10,9 @@ hero:
     alt: StellarClear Banner
   actions:
     - theme: brand
+      text: 🚀 Launch Live Dashboard
+      link: /dashboard
+    - theme: alt
       text: Get Started
       link: /getting-started/overview
     - theme: alt
