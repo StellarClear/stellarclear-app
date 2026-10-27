@@ -54,6 +54,7 @@ import { ReadinessChecker } from "./readiness.js";
 import { formatApiError } from "./errors.js";
 import { validatePayloadSize } from "./validation.js";
 import { SettlementDiagnosticsService } from "./operations.js";
+import { PrometheusMetricsExporter } from "./metrics.js";
 
 export interface InjectOptions {
   method: string;
@@ -82,6 +83,7 @@ export class ApiServer {
   public readonly idempotencyManager: IdempotencyManager;
   public readonly readinessChecker: ReadinessChecker;
   public readonly diagnosticsService: SettlementDiagnosticsService;
+  public readonly metricsExporter: PrometheusMetricsExporter;
 
   constructor(
     configInput: ApiConfigInput | ApiConfig,
@@ -142,6 +144,7 @@ export class ApiServer {
     this.idempotencyManager = new IdempotencyManager();
     this.readinessChecker = new ReadinessChecker(this.config, this.dbClient, this.anchorService);
     this.diagnosticsService = new SettlementDiagnosticsService(this.config, this.dbClient, this.anchorService);
+    this.metricsExporter = new PrometheusMetricsExporter(this.diagnosticsService);
   }
 
   /**
@@ -263,6 +266,16 @@ export class ApiServer {
           statusCode: 200,
           headers: { "content-type": "application/json", "x-request-id": requestId },
           body: versionResponse,
+        };
+      }
+
+      // 2d. GET /metrics (Prometheus text exposition format)
+      if (method === "GET" && pathname === "/metrics") {
+        const metrics = await this.metricsExporter.getMetrics();
+        return {
+          statusCode: 200,
+          headers: { "content-type": "text/plain; version=0.0.4", "x-request-id": requestId },
+          body: metrics,
         };
       }
 
