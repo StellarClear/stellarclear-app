@@ -14,6 +14,30 @@ export interface IndexerWorkerConfig extends IndexerConfig {
   streamPort?: number;
   streamHost?: string;
   streamAuthToken?: string;
+  /** Base delay in ms for exponential backoff on RPC error (default 1000ms). */
+  backoffBaseMs?: number;
+  /** Maximum backoff ceiling in ms on continuous RPC error (default 60000ms). */
+  maxBackoffMs?: number;
+  /** Random jitter factor between 0.0 and 1.0 (default 0.25). */
+  jitterFactor?: number;
+}
+
+/**
+ * Calculates exponential backoff with randomized jitter according to:
+ * min(maxBackoffMs, baseMs * 2^(attempt - 1) + jitter)
+ */
+export function calculateBackoffWithJitter(
+  attempt: number,
+  baseMs = 1000,
+  maxBackoffMs = 60000,
+  jitterFactor = 0.25,
+  randomFn: () => number = Math.random
+): number {
+  if (attempt <= 0) return 0;
+  const exponential = baseMs * Math.pow(2, attempt - 1);
+  const capped = Math.min(maxBackoffMs, exponential);
+  const jitter = capped * jitterFactor * randomFn();
+  return Math.min(maxBackoffMs, Math.floor(capped + jitter));
 }
 
 export interface IndexerWorkerInstance {
@@ -47,6 +71,15 @@ export function loadIndexerConfigFromEnv(
     streamBufferSize: env["INDEXER_STREAM_BUFFER_SIZE"]
       ? parseInt(env["INDEXER_STREAM_BUFFER_SIZE"], 10)
       : undefined,
+    backoffBaseMs: env["INDEXER_BACKOFF_BASE_MS"]
+      ? parseInt(env["INDEXER_BACKOFF_BASE_MS"], 10)
+      : 1000,
+    maxBackoffMs: env["INDEXER_MAX_BACKOFF_MS"]
+      ? parseInt(env["INDEXER_MAX_BACKOFF_MS"], 10)
+      : 60000,
+    jitterFactor: env["INDEXER_JITTER_FACTOR"]
+      ? parseFloat(env["INDEXER_JITTER_FACTOR"])
+      : 0.25,
   };
 }
 
@@ -85,6 +118,8 @@ export async function startIndexerWorker(
   let running = true;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let isPolling = false;
+  let consecutiveFailures = 0;
+  let currentDelayMs = config.pollIntervalMs;
 
   const pollOnce = async (): Promise<{
     ingestedCount: number;
@@ -123,10 +158,29 @@ export async function startIndexerWorker(
           `[StellarClear Indexer] Ingested ${result.ingestedCount} events (Ledger: ${service.cursor.ledger})`
         );
       }
+
+      // Successful RPC query and ingestion: Reset backoff to normal polling
+      if (consecutiveFailures > 0) {
+        console.log(
+          `[StellarClear Indexer] RPC recovered successfully after ${consecutiveFailures} consecutive failure(s). Resetting poll interval to ${config.pollIntervalMs}ms.`
+        );
+        consecutiveFailures = 0;
+      }
+      currentDelayMs = config.pollIntervalMs;
+
       return result;
     } catch (err: unknown) {
       const msg = (err as Error).message || "Unknown RPC error";
-      console.warn(`[StellarClear Indexer] Event polling warning: ${msg}`);
+      consecutiveFailures++;
+      currentDelayMs = calculateBackoffWithJitter(
+        consecutiveFailures,
+        config.backoffBaseMs ?? 1000,
+        config.maxBackoffMs ?? 60000,
+        config.jitterFactor ?? 0.25
+      );
+      console.warn(
+        `[StellarClear Indexer] RPC failure (attempt ${consecutiveFailures}): ${msg}. Backing off for ${currentDelayMs}ms before retry.`
+      );
       return { ingestedCount: 0, skippedCount: 0, errors: [msg] };
     }
   };
@@ -142,7 +196,7 @@ export async function startIndexerWorker(
         isPolling = false;
         scheduleNext();
       }
-    }, config.pollIntervalMs);
+    }, currentDelayMs);
   };
 
   console.log(
