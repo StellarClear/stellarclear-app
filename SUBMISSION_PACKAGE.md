@@ -58,6 +58,7 @@ The StellarClear protocol strictly separates trustless on-chain state anchoring 
 | :--- | :--- |
 | **Application Repository** | [`https://github.com/StellarClear/stellarclear-app`](https://github.com/StellarClear/stellarclear-app) |
 | **Smart Contract Repository** | [`https://github.com/StellarClear/stellarclear-contract`](https://github.com/StellarClear/stellarclear-contract) |
+| **Live Interactive Dashboard URL** | [`https://stellarclear.github.io/stellarclear-app/dashboard`](https://stellarclear.github.io/stellarclear-app/dashboard) |
 | **Live Documentation URL** | [`https://stellarclear.github.io/stellarclear-app/`](https://stellarclear.github.io/stellarclear-app/) |
 | **Live Application / Runtime Topology** | Monorepo multi-container runtime (`services/api`, `services/indexer`, `postgres:16`) managed via [`docker-compose.yml`](./docker-compose.yml) & [`Dockerfile`](./Dockerfile) |
 | **Active Deployed Contract ID (v0.1.1 Hardened)** | `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5` |
@@ -104,19 +105,15 @@ The StellarClear protocol strictly separates trustless on-chain state anchoring 
 
 | Issue # | Title | Repository | Resolution Reference | State |
 | :--- | :--- | :--- | :--- | :--- |
+| **[#18](https://github.com/StellarClear/stellarclear-app/issues/18)** | `feat(api): expose Prometheus-compatible metrics endpoint for operational telemetry` | `stellarclear-app` | PR #34 (commit `86200b9`) | **Closed** |
+| **[#19](https://github.com/StellarClear/stellarclear-app/issues/19)** | `feat(indexer): add exponential backoff and jitter for resilient RPC error recovery` | `stellarclear-app` | PR #35 (commit `6531ea2`) | **Closed** |
+| **—** | `feat(web): deploy live interactive protocol console & settlement dashboard` | `stellarclear-app` | PR #36 | **Live & Deployed** |
 | **[#16](https://github.com/StellarClear/stellarclear-app/issues/16)** | `feat(sdk,api): add observer quorum verification and threshold attestation support` | `stellarclear-app` | PR #25 / PR #26 (commits `2e854fc`, `f6a77bb`, `7fbddca`) | **Closed** |
 | **[#17](https://github.com/StellarClear/stellarclear-app/issues/17)** | `feat(indexer): handle on-chain dispute expiration TTL events and state progression` | `stellarclear-app` | PR #25 / PR #26 (commits `c6fe8e3`, `7fbddca`) | **Closed** |
 | **[#2](https://github.com/StellarClear/stellarclear-app/issues/2)** | `feat(indexer): add real-time websocket event subscription stream` | `stellarclear-app` | PR #25 / PR #26 (commit `7c17270`) | **Closed** |
 | **[#3](https://github.com/StellarClear/stellarclear-app/issues/3)** | `test(e2e): automate multi-party attestation flow against testnet` | `stellarclear-app` | PR #25 / PR #26 (commits `28666a6`, `c32e610`) | **Closed** |
 | **[#5](https://github.com/StellarClear/stellarclear-contract/issues/5)** | `feat(contract): implement observer quorum threshold logic` | `stellarclear-contract` | PR #14 (commit `2032666`) | **Closed** |
 | **[#6](https://github.com/StellarClear/stellarclear-contract/issues/6)** | `feat(contract): enforce dispute expiration TTL` | `stellarclear-contract` | PR #14 (commit `2032666`) | **Closed** |
-
-### Post-Release Operational Enhancements (Non-Blockers, Scheduled v0.2.0)
-
-| Issue # | Title | Labels | Priority | Classification |
-| :--- | :--- | :--- | :--- | :--- |
-| **[#18](https://github.com/StellarClear/stellarclear-app/issues/18)** | `feat(api): expose Prometheus-compatible metrics endpoint for operational telemetry` | `enhancement` | Low | **Post-Release Enhancement** |
-| **[#19](https://github.com/StellarClear/stellarclear-app/issues/19)** | `feat(indexer): add exponential backoff and jitter for resilient RPC error recovery` | `enhancement` | Medium | **Post-Release Enhancement** |
 
 ---
 

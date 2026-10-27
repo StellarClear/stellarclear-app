@@ -24,6 +24,7 @@ StellarClear is a non-custodial settlement verification protocol for Stellar tha
 
 | Resource | Link | Description |
 | :--- | :--- | :--- |
+| **Live Protocol Dashboard** | [`https://stellarclear.github.io/stellarclear-app/dashboard`](https://stellarclear.github.io/stellarclear-app/dashboard) | Interactive browser console for settlement reconciliation, matcher playground, and contract state inspection |
 | **Documentation Site** | [`https://stellarclear.github.io/stellarclear-app/`](https://stellarclear.github.io/stellarclear-app/) | Authoritative public documentation, guides, and specifications |
 | **Smart Contract Repository** | [`StellarClear/stellarclear-contract`](https://github.com/StellarClear/stellarclear-contract) | Rust Soroban `SettlementRegistry` contract implementation |
 | **Latest Release** | [`Application v0.1.1`](https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.1) | Pinned application release package and changelog |
@@ -45,6 +46,7 @@ StellarClear is a non-custodial settlement verification protocol for Stellar tha
 | **Network** | Stellar Testnet | RPC: `https://soroban-testnet.stellar.org` |
 | **Active Contract ID** | `CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5` | Deployed at ledger `5048699` |
 | **Testnet Status** | Deployed & Verified | 7/7 lifecycle flows verified on-chain (`testnet-evidence.json`) |
+| **Live Web Dashboard** | Live & Deployed | Hosted via GitHub Pages at [`stellarclear.github.io/stellarclear-app/dashboard`](https://stellarclear.github.io/stellarclear-app/dashboard) |
 | **Documentation** | Live | Hosted via GitHub Pages at [`stellarclear.github.io/stellarclear-app`](https://stellarclear.github.io/stellarclear-app/) |
 | **Security Status** | Unaudited | Active development; formal third-party audit pending |
 
@@ -59,15 +61,14 @@ The StellarClear repository contains a complete, verified settlement verificatio
 1. **Soroban `SettlementRegistry` Contract**: On-chain state anchor recording cryptographic commitments, observer registries, breaks, disputes, and finalizations.
 2. **TypeScript SDK (`packages/sdk`)**: Client library providing typed contract bindings, error normalization, and M-of-N observer quorum verification.
 3. **Deterministic Matcher (`services/matcher`)**: Decimal-accurate arithmetic reconciliation engine identifying clean matches and standardized breaks.
-4. **REST API (`services/api`)**: High-throughput Fastify dispatcher for case ingestion, dispute workflows, attestation management, and operational diagnostics.
+4. **REST API (`services/api`)**: High-throughput Fastify dispatcher for case ingestion, dispute workflows, attestation management, Prometheus telemetry, and operational diagnostics.
 5. **PostgreSQL Persistence (`packages/db`)**: Storage layer with idempotent insert guards, cursor tracking, and state deduplication.
-6. **Streaming Event Indexer (`services/indexer`)**: Event ingestion service tracking Soroban RPC events with durable checkpoint recovery.
+6. **Streaming Event Indexer (`services/indexer`)**: Event ingestion service tracking Soroban RPC events with durable checkpoint recovery and exponential backoff.
 7. **Realtime WebSocket Stream**: Live WebSocket event subscription stream for instant state synchronization.
 8. **Cryptographic Proof Package (`packages/proof`)**: RFC 8785 canonical JSON serializer and collision-resistant SHA-256 commitment generator.
 9. **Verified Testnet Deployment**: Live deployment on Stellar Testnet verified with real transaction evidence across all lifecycle scenarios.
 10. **Public Documentation Site**: Standalone VitePress documentation site deployed to GitHub Pages.
-
-> **Web dashboard**: Planned as a post-release product layer. The current release exposes the protocol through the SDK, API, indexer, realtime stream, and Soroban contract.
+11. **Live Interactive Dashboard**: Deployed browser console allowing reviewers and users to interact with the reconciliation engine, simulate break classifications, compute RFC 8785 commitments, and inspect testnet evidence in real time.
 
 ---
 
@@ -395,21 +396,20 @@ We welcome community contributions to StellarClear. Please refer to [`CONTRIBUTI
 
 ## Roadmap
 
-### Current Release (`v0.1.1`)
+### Current Release (`v0.1.1` & Enhancements)
 - Core Soroban `SettlementRegistry` state machine with M-of-N observer quorum.
 - Deterministic reconciliation matcher with standardized `BreakCode` taxonomy.
 - Canonical JSON serialization (`RFC 8785`) and SHA-256 settlement proof generator.
 - Streaming indexer with cursor recovery and real-time WebSocket subscriptions.
 - Fastify REST API with operational diagnostics and health probes.
 - Pinned Stellar Testnet deployment with verified on-chain evidence.
-
-### Post-Release Enhancements (Planned)
-- **Web Dashboard**: Planned as a post-release product layer for browser-based settlement monitoring and dispute visualization.
-- **Prometheus Telemetry**: Native Prometheus text exposition endpoint (`/metrics` &mdash; Issue [#18](https://github.com/StellarClear/stellarclear-app/issues/18)).
+- **Live Interactive Protocol Dashboard**: Hosted via GitHub Pages at [`stellarclear.github.io/stellarclear-app/dashboard`](https://stellarclear.github.io/stellarclear-app/dashboard).
+- **Prometheus Telemetry**: Native Prometheus text exposition endpoint (`GET /metrics` &mdash; Issue [#18](https://github.com/StellarClear/stellarclear-app/issues/18)).
 - **RPC Error Recovery**: Adaptive exponential backoff with jitter for Soroban RPC rate-limit resilience (Issue [#19](https://github.com/StellarClear/stellarclear-app/issues/19)).
-- **Multi-Chain Event Anchoring**: Cross-reference connectors for external settlement networks.
 
-> **Dashboard Status**: A web dashboard is **PLANNED** for a future release. There is no deployed or hosted browser interface in v0.1.1.
+### Future Ecosystem Integrations
+- **Multi-Chain Event Anchoring**: Cross-reference connectors for external settlement networks.
+- **Automated Dispute Arbitrator Bots**: Pre-packaged automated oracle arbitration agents.
 
 ---
 
