@@ -10,6 +10,7 @@ export default defineConfig({
     siteTitle: "StellarClear Docs",
     nav: [
       { text: "⚡ Live Dashboard", link: "/dashboard" },
+      { text: "🌊 Drips Wave", link: "/drips-wave" },
       { text: "Getting Started", link: "/getting-started/overview" },
       { text: "Protocol", link: "/protocol-concepts/lifecycle" },
       { text: "User Guides", link: "/user-guides/case-owner" },
@@ -77,6 +78,7 @@ export default defineConfig({
         {
           text: "Community & Governance",
           items: [
+            { text: "🌊 Drips Wave Contributor Hub", link: "/drips-wave" },
             { text: "Contributing Guide", link: "/community/contributing" },
             { text: "Security Policy", link: "/community/security" },
             { text: "Roadmap & Scope", link: "/community/roadmap" },

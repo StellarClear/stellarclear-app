@@ -11,6 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![Soroban](https://img.shields.io/badge/Soroban-v27.0-purple.svg)](https://stellar.org/soroban)
 [![Version](https://img.shields.io/badge/version-0.1.1-green.svg)](https://github.com/StellarClear/stellarclear-app/releases/tag/v0.1.1)
+[![Drips Wave](https://img.shields.io/badge/Drips%20Wave-Stellar%20Sprint-00C853.svg)](https://www.drips.network/wave)
 
 StellarClear is a non-custodial settlement verification protocol for Stellar that reconciles expected financial obligations with actual on-chain payments, records independent observer attestations, handles disputes, and anchors settlement evidence on Soroban.
 
@@ -34,6 +35,7 @@ StellarClear is a non-custodial settlement verification protocol for Stellar tha
 | **Security Policy** | [`SECURITY.md`](./SECURITY.md) | Vulnerability disclosure policy and security posture |
 | **Contributing Guide** | [`CONTRIBUTING.md`](./CONTRIBUTING.md) | Development workflow, commit conventions, and testing guidelines |
 | **Verification Package** | [`SUBMISSION_PACKAGE.md`](./SUBMISSION_PACKAGE.md) | Verified technical deployment metadata and testnet execution evidence |
+| **Drips Wave Sprints** | [`Drips Wave Tasks`](https://github.com/StellarClear/stellarclear-app/issues?q=is%3Aissue+is%3Aopen+label%3Adrips-wave) | Open community contribution sprint issues, point tiers, and rewards |
 
 ---
 
@@ -422,6 +424,19 @@ StellarClear's verification materials and protocol specifications are maintained
 - **Technical Evidence Package**: [`SUBMISSION_PACKAGE.md`](./SUBMISSION_PACKAGE.md)
 - **Security Artifacts**: [`docs/threat-model.md`](./docs/threat-model.md) (STRIDE) and [`docs/monitoring-plan.md`](./docs/monitoring-plan.md)
 - **Public Documentation Site**: [`https://stellarclear.github.io/stellarclear-app/`](https://stellarclear.github.io/stellarclear-app/)
+
+---
+
+## Drips Wave Contribution Sprints
+
+StellarClear is an open-source participant in [Drips Wave](https://www.drips.network/wave) — the continuous contribution sprint platform powered by the Drips Network and Stellar Development Foundation.
+
+- **Open Sprint Tasks**: [`drips-wave` Backlog](https://github.com/StellarClear/stellarclear-app/issues?q=is%3Aissue+is%3Aopen+label%3Adrips-wave)
+- **Tiers**:
+  - `100 points` (Trivial/Low): Documentation, tests, schemas, and UI styling
+  - `150 points` (Medium): REST API endpoints, SDK helper functions, and matcher rules
+  - `200 points` (High/Complex): Real-time indexer event recovery, Soroban RPC optimizations, and proof generators
+- **How to Participate**: See [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the [Live Documentation & Dashboard](https://stellarclear.github.io/stellarclear-app/wave).
 
 ---
 
