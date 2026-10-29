@@ -192,5 +192,53 @@ describe("API Service - Structured Settlement Health Diagnostics", () => {
     assert.strictEqual(body.contract.compatible, true);
     assert.ok(body.features.includes("onchain_finalization"));
   });
+
+  it("returns 200 and valid Drips Wave ecosystem metadata on GET /v1/wave/status", async () => {
+    const db = new InMemoryDatabaseClient();
+    const anchor = new SorobanSettlementAnchor();
+    const server = createApiServer(
+      {
+        port: 3000,
+        host: "0.0.0.0",
+        network: TEST_NETWORK,
+        databaseUrl: "postgres://localhost:5432/test",
+        contractId: TEST_CONTRACT_ID,
+      },
+      db,
+      anchor
+    );
+
+    const res = await server.inject({
+      method: "GET",
+      url: "/v1/wave/status",
+    });
+
+    assert.strictEqual(res.statusCode, 200);
+    const body = res.body as {
+      program: string;
+      status: string;
+      protocol: string;
+      network: string;
+      contractId: string;
+      releaseTag: string;
+      verifier: {
+        rfc8785: string;
+        quorumEnforcement: boolean;
+        breakTaxonomyCount: number;
+      };
+      links: Record<string, string>;
+    };
+
+    assert.strictEqual(body.program, "Drips Wave — Stellar Ecosystem Sprint");
+    assert.strictEqual(body.status, "active");
+    assert.strictEqual(body.protocol, "StellarClear");
+    assert.strictEqual(body.network, TEST_NETWORK);
+    assert.strictEqual(body.contractId, TEST_CONTRACT_ID);
+    assert.strictEqual(body.releaseTag, "v0.1.1");
+    assert.strictEqual(body.verifier.breakTaxonomyCount, 9);
+    assert.strictEqual(body.verifier.quorumEnforcement, true);
+    assert.ok(body.links.sprintTasks);
+    assert.ok(body.links.waveGuide);
+  });
 });
 

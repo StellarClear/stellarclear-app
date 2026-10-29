@@ -269,6 +269,37 @@ export class ApiServer {
         };
       }
 
+      // 2d. GET /v1/wave/status
+      if (method === "GET" && pathname === "/v1/wave/status") {
+        const health = this.readinessChecker.getHealth();
+        return {
+          statusCode: 200,
+          headers: { "content-type": "application/json", "x-request-id": requestId },
+          body: {
+            program: "Drips Wave — Stellar Ecosystem Sprint",
+            status: "active",
+            protocol: "StellarClear",
+            network: this.config.network,
+            contractId: this.config.contractId,
+            uptimeSeconds: health.uptimeSeconds,
+            releaseTag: "v0.1.1",
+            verifier: {
+              rfc8785: "canonical-json-sha256",
+              quorumEnforcement: true,
+              breakTaxonomyCount: 9,
+            },
+            links: {
+              repository: "https://github.com/StellarClear/stellarclear-app",
+              contractRepo: "https://github.com/StellarClear/stellarclear-contract",
+              docs: "https://stellarclear.github.io/stellarclear-app/",
+              dashboard: "https://stellarclear.github.io/stellarclear-app/dashboard",
+              waveGuide: "https://stellarclear.github.io/stellarclear-app/drips-wave",
+              sprintTasks: "https://github.com/StellarClear/stellarclear-app/issues?q=is%3Aissue+is%3Aopen+label%3Adrips-wave",
+            },
+          },
+        };
+      }
+
       // 2d. GET /metrics (Prometheus text exposition format)
       if (method === "GET" && pathname === "/metrics") {
         const metrics = await this.metricsExporter.getMetrics();

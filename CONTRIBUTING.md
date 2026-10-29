@@ -39,6 +39,30 @@ We follow the [Conventional Commits](https://www.conventionalcommits.org/) speci
 
 Example: `feat(api): add settlement dispute submission route`
 
+## Drips Wave Contribution Guidelines
+
+StellarClear participates in the [Drips Wave](https://www.drips.network/wave) sprint program for the Stellar ecosystem. Community contributors can claim open tasks tagged with `drips-wave` and earn rewards from the program reward pool.
+
+### Point Tiers
+- **100 Points (Trivial / Low)**: Documentation additions, UI polishing, test expansions, and schema refinements.
+- **150 Points (Medium)**: New API endpoints, matcher reconciliation rules, SDK helper methods, and telemetry integration.
+- **200 Points (High / Complex)**: Complex Soroban RPC event stream optimizations, multi-party quorum verifiers, and cryptographic proof extensions.
+
+### How to Pick Up a Drips Wave Task
+1. Browse open issues with the [`drips-wave`](https://github.com/StellarClear/stellarclear-app/labels/drips-wave) label.
+2. Complete KYC and sign in on [drips.network/wave](https://www.drips.network/wave).
+3. Apply for the issue directly through the Drips Wave app.
+4. Once assigned by a maintainer, implement your changes in a branch off `main`.
+5. Run the full verification suite before pushing:
+   ```bash
+   npm run build
+   npm run typecheck
+   npm test
+   npm run verify:release
+   ```
+6. Open a pull request linking your issue: `Fixes #<issue-number>`.
+7. Once reviewed and merged by maintainers, Drips Wave will attribute points to your account for payout at the end of the sprint cycle.
+
 ## How to pick up an issue
 
 - Look for `good first issue` / `help wanted` labels.

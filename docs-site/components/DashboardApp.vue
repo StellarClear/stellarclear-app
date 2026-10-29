@@ -14,6 +14,7 @@
         <span class="badge badge-info">Soroban v27.0</span>
         <span class="badge badge-purple">7/7 On-Chain Flows Verified</span>
         <span class="badge badge-gold">v0.1.1 Hardened</span>
+        <span class="badge badge-wave">🌊 Drips Wave Sprint Active</span>
       </div>
     </div>
 
@@ -82,6 +83,12 @@
         @click="activeTab = 'quorum'"
       >
         Observer Quorum Simulator
+      </button>
+      <button 
+        :class="['tab-btn tab-btn-wave', { active: activeTab === 'wave' }]" 
+        @click="activeTab = 'wave'"
+      >
+        🌊 Drips Wave Sprint
       </button>
     </div>
 
@@ -273,6 +280,55 @@
               : 'Observer threshold not met. Finalization will be rejected with ObserverQuorumNotMet (Error #19).' }}
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: Drips Wave Contributor Hub -->
+    <div v-if="activeTab === 'wave'" class="tab-panel">
+      <div class="panel-header">
+        <h3>🌊 Drips Wave — Stellar Ecosystem Contribution Sprints</h3>
+        <p class="panel-desc">
+          StellarClear is an active repository participating in Drips Wave. Solve open issues, submit pull requests, and earn points from the shared reward pool.
+        </p>
+      </div>
+
+      <div class="wave-cards-grid">
+        <div class="wave-card">
+          <div class="wave-points">100 Points</div>
+          <div class="wave-title">Trivial & Low Complexity</div>
+          <div class="wave-desc">Documentation, developer onboarding guides, schema validations, test expansions, and UI styling polish.</div>
+          <a href="https://github.com/StellarClear/stellarclear-app/issues?q=is%3Aissue+is%3Aopen+label%3Adrips-wave" target="_blank" rel="noopener" class="btn btn-sm btn-outline mt-3">
+            Browse 100 pt Tasks ↗
+          </a>
+        </div>
+
+        <div class="wave-card">
+          <div class="wave-points">150 Points</div>
+          <div class="wave-title">Medium Complexity</div>
+          <div class="wave-desc">REST API operational endpoints, deterministic matcher rules, TypeScript SDK client helpers, and telemetry integration.</div>
+          <a href="https://github.com/StellarClear/stellarclear-app/issues?q=is%3Aissue+is%3Aopen+label%3Adrips-wave" target="_blank" rel="noopener" class="btn btn-sm btn-outline mt-3">
+            Browse 150 pt Tasks ↗
+          </a>
+        </div>
+
+        <div class="wave-card">
+          <div class="wave-points">200 Points</div>
+          <div class="wave-title">High Complexity</div>
+          <div class="wave-desc">Soroban RPC streaming indexer resilience, multi-party observer quorum verification, dispute TTL expiration, and smart contract invariants.</div>
+          <a href="https://github.com/StellarClear/stellarclear-contract/issues?q=is%3Aissue+is%3Aopen+label%3Adrips-wave" target="_blank" rel="noopener" class="btn btn-sm btn-outline mt-3">
+            Browse 200 pt Tasks ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="wave-instructions mt-4">
+        <h4>How to Participate</h4>
+        <ol class="wave-steps">
+          <li><strong>Sign up & KYC:</strong> Complete identity verification on <a href="https://www.drips.network/wave" target="_blank" rel="noopener">drips.network/wave</a> using your GitHub account.</li>
+          <li><strong>Claim Issue:</strong> Browse issues with the <code>drips-wave</code> label and apply through the Drips Wave maintainer dashboard.</li>
+          <li><strong>Implement & Test:</strong> Fork/clone, implement the feature or fix, and ensure <code>npm test</code> and <code>npm run verify:release</code> pass.</li>
+          <li><strong>Submit PR:</strong> Open a pull request linking the issue (<code>Fixes #...</code>). Once merged, your points are automatically recorded for payout!</li>
+        </ol>
       </div>
     </div>
   </div>
@@ -882,6 +938,70 @@ generateCommitment()
 .eval-desc {
   font-size: 0.85rem;
   color: var(--vp-c-text-2);
+}
+
+.badge-wave {
+  background: rgba(0, 200, 83, 0.15);
+  color: #00c853;
+  border: 1px solid rgba(0, 200, 83, 0.4);
+}
+
+.tab-btn-wave {
+  color: #00c853 !important;
+}
+
+.tab-btn-wave.active {
+  border-bottom-color: #00c853 !important;
+}
+
+.wave-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1rem;
+}
+
+.wave-card {
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.wave-points {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #00c853;
+  margin-bottom: 0.35rem;
+}
+
+.wave-title {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.wave-desc {
+  font-size: 0.875rem;
+  color: var(--vp-c-text-2);
+  line-height: 1.45;
+  flex: 1;
+}
+
+.wave-instructions {
+  background: var(--vp-c-bg);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.wave-steps {
+  padding-left: 1.25rem;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 </style>
 
