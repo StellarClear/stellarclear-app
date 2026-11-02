@@ -4,9 +4,12 @@ import { createDatabaseClient, type IDatabaseClient } from "@stellarclear/db";
 import { IndexerService, type IndexerConfig } from "./service.js";
 import type { RawStellarEvent } from "./decoder.js";
 import { startEventStreamServer, type EventStreamServer } from "./ws-server.js";
+import { RpcClient, type RpcEndpointHealth } from "./rpc-client.js";
 
 export interface IndexerWorkerConfig extends IndexerConfig {
   rpcUrl: string;
+  rpcUrls?: string[];
+  failoverThreshold?: number;
   databaseUrl: string;
   pollIntervalMs: number;
   startLedger?: number;
@@ -44,21 +47,30 @@ export interface IndexerWorkerInstance {
   service: IndexerService;
   dbClient: IDatabaseClient;
   config: IndexerWorkerConfig;
+  rpcClient: RpcClient;
   streamServer?: EventStreamServer;
   pollOnce: () => Promise<{ ingestedCount: number; skippedCount: number; errors: string[] }>;
   stop: () => Promise<void>;
+  getActiveRpcUrl: () => string;
+  getRpcHealth: () => RpcEndpointHealth[];
 }
 
 export function loadIndexerConfigFromEnv(
   env: Record<string, string | undefined> = (typeof process !== "undefined" ? process.env : {})
 ): IndexerWorkerConfig {
   const batchStr = env["INDEXER_BATCH_SIZE"] || env["BATCH_SIZE"];
+  const rpcUrlsRaw = env["STELLAR_RPC_URLS"];
+  const rpcUrls = rpcUrlsRaw
+    ? rpcUrlsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+    : undefined;
+  const primaryRpc = rpcUrls && rpcUrls.length > 0 ? rpcUrls[0]! : (env["STELLAR_RPC_URL"] || "https://soroban-testnet.stellar.org");
   return {
     network: env["STELLAR_NETWORK"] || "testnet",
     contractId:
       env["STELLAR_CONTRACT_ID"] ||
       "CCPCMPIUTKBLSJVSGPPSUHTBBY6HHT3OTE3CKUXC5BD2B3YEDSAROGC5",
-    rpcUrl: env["STELLAR_RPC_URL"] || "https://soroban-testnet.stellar.org",
+    rpcUrl: primaryRpc,
+    rpcUrls: rpcUrls ?? [primaryRpc],
     databaseUrl: env["DATABASE_URL"] || "postgres://localhost:5432/stellarclear_db",
     pollIntervalMs: env["INDEXER_POLL_INTERVAL_MS"]
       ? parseInt(env["INDEXER_POLL_INTERVAL_MS"], 10)
@@ -88,7 +100,8 @@ export function loadIndexerConfigFromEnv(
  */
 export async function startIndexerWorker(
   customConfig?: Partial<IndexerWorkerConfig>,
-  customDbClient?: IDatabaseClient
+  customDbClient?: IDatabaseClient,
+  customRpcClient?: RpcClient
 ): Promise<IndexerWorkerInstance> {
   const envConfig = loadIndexerConfigFromEnv(process.env);
   const config: IndexerWorkerConfig = { ...envConfig, ...customConfig };
@@ -111,8 +124,12 @@ export async function startIndexerWorker(
     console.log(`[StellarClear Indexer] Realtime event stream listening on port ${streamServer.port}`);
   }
 
-  const rpcServer = new rpc.Server(config.rpcUrl, {
-    allowHttp: config.rpcUrl.startsWith("http://"),
+  const configuredUrls = config.rpcUrls && config.rpcUrls.length > 0
+    ? config.rpcUrls
+    : [config.rpcUrl];
+  const rpcClient = customRpcClient ?? new RpcClient({
+    rpcUrls: configuredUrls,
+    failoverThreshold: config.failoverThreshold ?? 1,
   });
 
   let running = true;
@@ -130,7 +147,7 @@ export async function startIndexerWorker(
       const currentCursor = service.cursor;
       let startLedger = currentCursor.ledger > 0 ? currentCursor.ledger : (config.startLedger ?? 1);
 
-      const response = await rpcServer.getEvents({
+      const response = await rpcClient.getEvents({
         startLedger,
         filters: [{ type: "contract", contractIds: [config.contractId] }],
         limit: config.batchSize,
@@ -217,7 +234,17 @@ export async function startIndexerWorker(
     console.log("[StellarClear Indexer] Worker stopped.");
   };
 
-  return { service, dbClient, config, streamServer, pollOnce, stop };
+  return {
+    service,
+    dbClient,
+    config,
+    rpcClient,
+    streamServer,
+    pollOnce,
+    stop,
+    getActiveRpcUrl: () => rpcClient.getActiveRpcUrl(),
+    getRpcHealth: () => rpcClient.getEndpointsHealth(),
+  };
 }
 
 // Auto-start when executed directly as entrypoint
