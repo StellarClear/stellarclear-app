@@ -1,4 +1,5 @@
 import { defineConfig } from "vitepress";
+
 export default defineConfig({
   title: "StellarClear",
   description: "Open-source Stellar-native settlement evidence and reconciliation protocol.",
@@ -49,6 +50,7 @@ export default defineConfig({
             { text: "Counterparty Guide", link: "/user-guides/counterparty" },
             { text: "Independent Observer Guide", link: "/user-guides/independent-observer" },
             { text: "Dispute Resolution & Arbitration", link: "/user-guides/dispute-arbitrator" },
+            { text: "Freighter & Lobstr Wallet Signing", link: "/user-guides/wallet-signing" },
           ],
         },
       ],
