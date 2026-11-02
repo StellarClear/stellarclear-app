@@ -37,13 +37,21 @@ declare module "node:url" {
   export function fileURLToPath(url: string | URL): string;
 }
 
+declare module "node:crypto" {
+  export function createHmac(algorithm: string, key: string | Uint8Array): {
+    update(data: string | Uint8Array): any;
+    digest(encoding?: string): string;
+  };
+  export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean;
+}
+
 declare namespace NodeJS {
   interface Timeout {}
 }
 
 declare const Buffer: {
   isBuffer(obj: any): boolean;
-  from(data: any): Uint8Array & { toString(encoding?: string): string };
+  from(data: any, encoding?: string): Uint8Array & { toString(encoding?: string): string };
   concat(list: Uint8Array[]): Uint8Array & { toString(encoding?: string): string };
 };
 

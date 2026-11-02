@@ -55,6 +55,11 @@ import { formatApiError } from "./errors.js";
 import { validatePayloadSize } from "./validation.js";
 import { SettlementDiagnosticsService } from "./operations.js";
 import { PrometheusMetricsExporter } from "./metrics.js";
+import {
+  WebhookDispatcher,
+  RegisterWebhookRequestSchema,
+  type WebhookSubscription,
+} from "./webhooks.js";
 
 export interface InjectOptions {
   method: string;
@@ -84,12 +89,14 @@ export class ApiServer {
   public readonly readinessChecker: ReadinessChecker;
   public readonly diagnosticsService: SettlementDiagnosticsService;
   public readonly metricsExporter: PrometheusMetricsExporter;
+  public readonly webhookDispatcher: WebhookDispatcher;
 
   constructor(
     configInput: ApiConfigInput | ApiConfig,
     public readonly dbClient: IDatabaseClient,
     anchorService?: OnChainAnchorService,
-    chainVerifier?: SorobanChainVerifier
+    chainVerifier?: SorobanChainVerifier,
+    webhookDispatcher?: WebhookDispatcher
   ) {
     this.config = validateApiConfig(configInput);
     this.caseRepo = new CaseRepository(dbClient);
@@ -145,6 +152,7 @@ export class ApiServer {
     this.readinessChecker = new ReadinessChecker(this.config, this.dbClient, this.anchorService);
     this.diagnosticsService = new SettlementDiagnosticsService(this.config, this.dbClient, this.anchorService);
     this.metricsExporter = new PrometheusMetricsExporter(this.diagnosticsService);
+    this.webhookDispatcher = webhookDispatcher ?? new WebhookDispatcher();
   }
 
   /**
@@ -347,6 +355,14 @@ export class ApiServer {
           submission_status: "CONFIRMED",
           created_at: now,
           updated_at: now,
+        });
+
+        void this.webhookDispatcher.dispatch("case.opened", expected.caseId, "OPEN", {
+          caseId: expected.caseId,
+          owner: expected.owner,
+          tradeReference: expected.tradeReference,
+          status: "OPEN",
+          txHash: anchorResult.txHash,
         });
 
         return {
@@ -745,6 +761,13 @@ export class ApiServer {
           observation_tx_hash: anchorResult.txHash,
         });
 
+        void this.webhookDispatcher.dispatch("case.observed", caseId, "OBSERVED", {
+          caseId,
+          status: "OBSERVED",
+          txHash: anchorResult.txHash,
+          observedAt: obs.observedAt,
+        });
+
         return {
           statusCode: 200,
           headers: { "content-type": "application/json", "x-request-id": requestId },
@@ -836,6 +859,21 @@ export class ApiServer {
         await this.caseRepo.updateChainReferences(caseId, this.config.network, {
           reconciliation_tx_hash: anchorResult.txHash,
         });
+
+        if (result.matched) {
+          void this.webhookDispatcher.dispatch("case.matched", caseId, "MATCHED", {
+            caseId,
+            status: "MATCHED",
+            txHash: anchorResult.txHash,
+          });
+        } else {
+          void this.webhookDispatcher.dispatch("case.break", caseId, "BREAK", {
+            caseId,
+            status: "BREAK",
+            breaks: result.breaks,
+            txHash: anchorResult.txHash,
+          });
+        }
 
         return {
           statusCode: 200,
@@ -1063,6 +1101,14 @@ export class ApiServer {
 
         try {
           const result = await this.disputeService.openDispute(caseId, parsedBody.data);
+          void this.webhookDispatcher.dispatch("case.disputed", caseId, "DISPUTED", {
+            caseId,
+            status: "DISPUTED",
+            disputeCommitment: result.disputeCommitment,
+            initiator: parsedBody.data.initiator,
+            reason: parsedBody.data.reason,
+            txHash: result.txHash,
+          });
           return {
             statusCode: 201,
             headers: { "content-type": "application/json", "x-request-id": requestId },
@@ -1096,6 +1142,13 @@ export class ApiServer {
 
         try {
           const result = await this.disputeService.submitResolution(caseId, parsedBody.data);
+          void this.webhookDispatcher.dispatch("case.resolved", caseId, "RESOLVED", {
+            caseId,
+            status: "RESOLVED",
+            resolutionCommitment: result.resolutionCommitment,
+            resolver: parsedBody.data.resolver,
+            txHash: result.txHash,
+          });
           return {
             statusCode: 200,
             headers: { "content-type": "application/json", "x-request-id": requestId },
@@ -1148,6 +1201,11 @@ export class ApiServer {
         const caseId = parsedId.data;
         try {
           const result = await this.finalizationService.finalizeCase(caseId);
+          void this.webhookDispatcher.dispatch("case.finalized", caseId, "FINALIZED", {
+            caseId,
+            status: "FINALIZED",
+            txHash: result.finalizationTxHash,
+          });
           return {
             statusCode: 200,
             headers: { "content-type": "application/json", "x-request-id": requestId },
@@ -1219,6 +1277,45 @@ export class ApiServer {
         };
       }
 
+      // 9a. POST /v1/webhooks
+      if (method === "POST" && pathname === "/v1/webhooks") {
+        const parsed = RegisterWebhookRequestSchema.safeParse(req.body);
+        if (!parsed.success) {
+          return this.errorResponse(400, "VALIDATION_ERROR", parsed.error.message, requestId, parsed.error.issues);
+        }
+        const subscription = this.webhookDispatcher.register(parsed.data);
+        return {
+          statusCode: 201,
+          headers: { "content-type": "application/json", "x-request-id": requestId },
+          body: { webhook: subscription },
+        };
+      }
+
+      // 9b. GET /v1/webhooks
+      if (method === "GET" && pathname === "/v1/webhooks") {
+        const list = this.webhookDispatcher.list();
+        return {
+          statusCode: 200,
+          headers: { "content-type": "application/json", "x-request-id": requestId },
+          body: { webhooks: list },
+        };
+      }
+
+      // 9c. DELETE /v1/webhooks/:id
+      const webhookDeleteMatch = pathname.match(/^\/v1\/webhooks\/([a-zA-Z0-9_-]+)$/);
+      if (method === "DELETE" && webhookDeleteMatch) {
+        const id = webhookDeleteMatch[1];
+        const deleted = this.webhookDispatcher.delete(id);
+        if (!deleted) {
+          return this.errorResponse(404, "NOT_FOUND", `Webhook subscription ${id} not found`, requestId);
+        }
+        return {
+          statusCode: 200,
+          headers: { "content-type": "application/json", "x-request-id": requestId },
+          body: { deleted: true, id },
+        };
+      }
+
       // 404 Route Not Found
       return this.errorResponse(404, "ROUTE_NOT_FOUND", `Cannot ${method} ${pathname}`, requestId);
     } catch (err: unknown) {
@@ -1259,7 +1356,8 @@ export function createApiServer(
   config: ApiConfigInput | ApiConfig,
   dbClient: IDatabaseClient,
   anchorService?: OnChainAnchorService,
-  chainVerifier?: SorobanChainVerifier
+  chainVerifier?: SorobanChainVerifier,
+  webhookDispatcher?: WebhookDispatcher
 ): ApiServer {
-  return new ApiServer(config, dbClient, anchorService, chainVerifier);
+  return new ApiServer(config, dbClient, anchorService, chainVerifier, webhookDispatcher);
 }
