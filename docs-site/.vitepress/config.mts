@@ -49,6 +49,7 @@ export default defineConfig({
             { text: "Counterparty Guide", link: "/user-guides/counterparty" },
             { text: "Independent Observer Guide", link: "/user-guides/independent-observer" },
             { text: "Dispute Resolution & Arbitration", link: "/user-guides/dispute-arbitrator" },
+            { text: "Wallet Signing (Freighter & Lobstr)", link: "/user-guides/wallet-signing" },
           ],
         },
       ],
