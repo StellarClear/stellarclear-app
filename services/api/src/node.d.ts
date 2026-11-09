@@ -37,6 +37,15 @@ declare module "node:url" {
   export function fileURLToPath(url: string | URL): string;
 }
 
+declare module "node:crypto" {
+  export interface Hmac {
+    update(data: string | Uint8Array): Hmac;
+    digest(encoding: "hex" | "base64"): string;
+  }
+  export function createHmac(algorithm: string, key: string | Uint8Array): Hmac;
+  export function randomBytes(size: number): { toString(encoding?: string): string };
+}
+
 declare namespace NodeJS {
   interface Timeout {}
 }

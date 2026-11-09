@@ -2,6 +2,10 @@ declare module "node:test" {
   export function describe(name: string, fn: () => void | Promise<void>): void;
   export function it(name: string, fn: () => void | Promise<void>): void;
   export function test(name: string, fn: () => void | Promise<void>): void;
+  export function beforeEach(fn: () => void | Promise<void>): void;
+  export function afterEach(fn: () => void | Promise<void>): void;
+  export function before(fn: () => void | Promise<void>): void;
+  export function after(fn: () => void | Promise<void>): void;
 }
 
 declare module "node:assert/strict" {
@@ -14,6 +18,15 @@ declare module "node:assert/strict" {
   export function doesNotReject(asyncFn: () => Promise<unknown>, message?: string): Promise<void>;
   export function throws(fn: () => unknown, error?: unknown, message?: string): void;
   export function doesNotThrow(fn: () => unknown, message?: string): void;
+}
+
+declare module "node:crypto" {
+  export interface Hmac {
+    update(data: string | Uint8Array): Hmac;
+    digest(encoding: "hex" | "base64"): string;
+  }
+  export function createHmac(algorithm: string, key: string | Uint8Array): Hmac;
+  export function randomBytes(size: number): { toString(encoding?: string): string };
 }
 
 declare module "node:http" {
