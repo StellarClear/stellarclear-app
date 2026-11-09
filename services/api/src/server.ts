@@ -1,3 +1,4 @@
+import { WebhookDispatcher, type RegisterWebhookRequest } from "./webhooks.js";
 function generateUuid(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
@@ -84,6 +85,7 @@ export class ApiServer {
   public readonly readinessChecker: ReadinessChecker;
   public readonly diagnosticsService: SettlementDiagnosticsService;
   public readonly metricsExporter: PrometheusMetricsExporter;
+  public readonly webhookDispatcher: WebhookDispatcher = new WebhookDispatcher();
 
   constructor(
     configInput: ApiConfigInput | ApiConfig,
@@ -310,6 +312,57 @@ export class ApiServer {
         };
       }
 
+      // 2e. Webhook subscription endpoints (Wave Issue #40)
+      if (method === "POST" && pathname === "/v1/webhooks") {
+        try {
+          const subscription = this.webhookDispatcher.register(req.body as RegisterWebhookRequest);
+          return {
+            statusCode: 201,
+            headers: { "content-type": "application/json", "x-request-id": requestId },
+            body: {
+              webhook: {
+                id: subscription.id,
+                url: subscription.url,
+                events: subscription.events,
+                active: subscription.active,
+                secret: subscription.secret,
+                createdAt: subscription.createdAt,
+              },
+            },
+          };
+        } catch (err: unknown) {
+          return this.errorResponse(400, "INVALID_WEBHOOK_PAYLOAD", (err as Error).message || "Invalid webhook payload", requestId);
+        }
+      }
+
+      if (method === "GET" && pathname === "/v1/webhooks") {
+        const webhooks = this.webhookDispatcher.list().map((w) => ({
+          id: w.id,
+          url: w.url,
+          events: w.events,
+          active: w.active,
+          createdAt: w.createdAt,
+        }));
+        return {
+          statusCode: 200,
+          headers: { "content-type": "application/json", "x-request-id": requestId },
+          body: { webhooks },
+        };
+      }
+
+      if (method === "DELETE" && pathname.startsWith("/v1/webhooks/")) {
+        const id = pathname.slice("/v1/webhooks/".length);
+        const deleted = this.webhookDispatcher.delete(id);
+        if (!deleted) {
+          return this.errorResponse(404, "WEBHOOK_NOT_FOUND", `Webhook subscription ${id} not found`, requestId);
+        }
+        return {
+          statusCode: 200,
+          headers: { "content-type": "application/json", "x-request-id": requestId },
+          body: { deleted: true, id },
+        };
+      }
+
       // 3. POST /v1/cases
       if (method === "POST" && pathname === "/v1/cases") {
         const parsed = CreateCaseRequestSchema.safeParse(req.body);
@@ -347,6 +400,13 @@ export class ApiServer {
           submission_status: "CONFIRMED",
           created_at: now,
           updated_at: now,
+        });
+
+        void this.webhookDispatcher.dispatch("case.created", {
+          caseId: expected.caseId,
+          status: "OPEN",
+          termsCommitment,
+          txHash: anchorResult.txHash,
         });
 
         return {
@@ -745,6 +805,14 @@ export class ApiServer {
           observation_tx_hash: anchorResult.txHash,
         });
 
+        void this.webhookDispatcher.dispatch("case.observed", {
+          caseId,
+          status: "OBSERVED",
+          observationCommitment: obsCommitment,
+          txHash: anchorResult.txHash,
+          observedAt: obs.observedAt,
+        });
+
         return {
           statusCode: 200,
           headers: { "content-type": "application/json", "x-request-id": requestId },
@@ -836,6 +904,12 @@ export class ApiServer {
         await this.caseRepo.updateChainReferences(caseId, this.config.network, {
           reconciliation_tx_hash: anchorResult.txHash,
         });
+
+        if (result.status === "MATCHED") {
+          void this.webhookDispatcher.dispatch("case.matched", { caseId, status: "MATCHED", result });
+        } else {
+          void this.webhookDispatcher.dispatch("case.break", { caseId, status: "BREAK", result });
+        }
 
         return {
           statusCode: 200,
@@ -1063,6 +1137,7 @@ export class ApiServer {
 
         try {
           const result = await this.disputeService.openDispute(caseId, parsedBody.data);
+          void this.webhookDispatcher.dispatch("case.disputed", { caseId, status: "DISPUTED", dispute: result });
           return {
             statusCode: 201,
             headers: { "content-type": "application/json", "x-request-id": requestId },
@@ -1096,6 +1171,7 @@ export class ApiServer {
 
         try {
           const result = await this.disputeService.submitResolution(caseId, parsedBody.data);
+          void this.webhookDispatcher.dispatch("case.resolved", { caseId, status: "RESOLVED", resolution: result });
           return {
             statusCode: 200,
             headers: { "content-type": "application/json", "x-request-id": requestId },
@@ -1148,6 +1224,7 @@ export class ApiServer {
         const caseId = parsedId.data;
         try {
           const result = await this.finalizationService.finalizeCase(caseId);
+          void this.webhookDispatcher.dispatch("case.finalized", { caseId, status: "FINALIZED", finalization: result });
           return {
             statusCode: 200,
             headers: { "content-type": "application/json", "x-request-id": requestId },
